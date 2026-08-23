@@ -1,0 +1,19 @@
+{
+  "name": "darkhwast",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DarKhwast: AI complaint router for local government, Pakistan. Hackathon prototype (Bano Qabil x Alibaba Cloud Launch AI Hackathon 2026).",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "reset": "node -e \"import('./lib/db.js').then(m=>m.resetDb())\""
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "nodemailer": "^6.9.13"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
