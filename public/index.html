@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ur" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DarKhwast - AI complaint router for local government</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%230E6B5C'/><text x='16' y='21' font-size='13' font-family='monospace' text-anchor='middle' fill='white'>DK</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Noto+Naskh+Arabic:wght@400;500;700&family=Public+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+  <script>try{var l=localStorage.getItem('dk_lang')||'ur';document.documentElement.lang=l;document.documentElement.dir=l==='ur'?'rtl':'ltr';}catch(e){}</script>
+</head>
+<body>
+  <a class="skip" href="#main" data-i18n="skip">Skip to content</a>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="wordmark" href="/"><span class="dk-mark">DK</span> DarKhwast <span class="muted small lat" style="font-weight:400" data-i18n="tagline" lang="en">AI complaint router</span></a>
+      <button type="button" class="lang-toggle" data-i18n="lang_name">English</button>
+    </div>
+  </header>
+
+  <main id="main" class="shell shell-landing">
+    <section class="hero">
+      <div class="hero-copy">
+        <h1 data-i18n="hero_title">مسئلہ بتائیں، درخواست صحیح دفتر تک پہنچائیں گے</h1>
+        <p class="sub" data-i18n="hero_sub"></p>
+        <div class="trust-row" role="list">
+          <span class="trust" role="listitem"><span data-icon="file"></span><span data-i18n="trust1"></span></span>
+          <span class="trust" role="listitem"><span data-icon="shield"></span><span data-i18n="trust2"></span></span>
+          <span class="trust" role="listitem"><span data-icon="check"></span><span data-i18n="trust3"></span></span>
+        </div>
+        <a class="btn btn-primary btn-block" href="/file.html" data-i18n="cta_file">شکایت درج کریں</a>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <span class="stamp-mark fa-stamp" style="font-size:15px; padding:3px 12px">SENT</span>
+        <div class="letter-card" style="padding:20px">
+          <div class="letter-head" style="margin-bottom:8px">
+            <div>
+              <div class="lh-title lat" lang="en">DARKHWAST</div>
+              <div class="small muted mono lat" lang="en" style="direction:ltr; text-align:start">DK-2026-M4K9PA</div>
+            </div>
+            <svg class="seal" style="width:56px;height:56px" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="46" fill="none" stroke="#0E6B5C" stroke-width="3"/>
+              <circle cx="50" cy="50" r="36" fill="none" stroke="#0E6B5C" stroke-width="1.5"/>
+              <text x="50" y="47" text-anchor="middle" font-family="monospace" font-size="17" font-weight="600" fill="#0E6B5C">DK</text>
+              <text x="50" y="64" text-anchor="middle" font-family="sans-serif" font-size="8" fill="#0E6B5C" letter-spacing="1.6">DARKHWAST</text>
+            </svg>
+          </div>
+          <div class="fa-line w60"></div><div class="fa-line w85"></div><div class="fa-line"></div>
+          <div class="fa-line w85"></div><div class="fa-line w40"></div>
+        </div>
+        <span class="fa-tid lat" lang="en">DK-2026-M4K9PA</span>
+      </div>
+    </section>
+
+    <section class="steps" aria-label="How it works">
+      <div class="step-card">
+        <div class="n-ic"><span data-icon="file"></span></div>
+        <div><h3 data-i18n="step1_t"></h3><p data-i18n="step1_d"></p></div>
+      </div>
+      <div class="step-card">
+        <div class="n-ic"><span data-icon="send"></span></div>
+        <div><h3 data-i18n="step2_t"></h3><p data-i18n="step2_d"></p></div>
+      </div>
+      <div class="step-card">
+        <div class="n-ic"><span data-icon="copy"></span></div>
+        <div><h3 data-i18n="step3_t"></h3><p data-i18n="step3_d"></p></div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="trackH">
+      <h2 id="trackH" data-i18n="cta_track">Track a complaint</h2>
+      <form id="trackForm" novalidate>
+        <div class="field">
+          <label for="tidInput" data-i18n="track_label">Tracking ID</label>
+          <div class="track-inline">
+            <input id="tidInput" class="control mono" type="text" inputmode="latin" placeholder="DK-2026-..." data-i18n-ph="track_ph" autocomplete="off" style="direction:ltr; text-align:start">
+            <button type="submit" class="btn btn-secondary" data-i18n="track_go">Track</button>
+          </div>
+          <div class="field-error" id="tidError" hidden data-i18n="track_invalid"></div>
+        </div>
+      </form>
+    </section>
+
+    <p class="small muted" style="margin-top:24px" data-i18n="cities_line"></p>
+
+    <footer class="site-footer" data-i18n="disclaimer"></footer>
+  </main>
+
+  <script type="module" src="/js/index.js"></script>
+</body>
+</html>

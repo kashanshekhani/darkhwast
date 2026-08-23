@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ur" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DarKhwast - Describe the problem</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%230E6B5C'/><text x='16' y='21' font-size='13' font-family='monospace' text-anchor='middle' fill='white'>DK</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Noto+Naskh+Arabic:wght@400;500;700&family=Public+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+  <script>try{var l=localStorage.getItem('dk_lang')||'ur';document.documentElement.lang=l;document.documentElement.dir=l==='ur'?'rtl':'ltr';}catch(e){}</script>
+</head>
+<body>
+  <a class="skip" href="#main" data-i18n="skip">Skip to content</a>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="wordmark" href="/"><span class="dk-mark">DK</span> DarKhwast</a>
+      <button type="button" class="lang-toggle" data-i18n="lang_name">English</button>
+    </div>
+  </header>
+
+  <main id="main" class="shell">
+    <div id="errorSummary" class="error-summary" role="alert" hidden>
+      <h2 data-i18n="err_title">Please fix the following:</h2>
+      <ul id="errorList"></ul>
+    </div>
+
+    <section id="fileSection">
+      <p class="progress-label" data-i18n="step1">Step 1 of 2</p>
+      <h1 data-i18n="q_title">What's the problem?</h1>
+
+      <form id="fileForm" novalidate>
+        <div class="field">
+          <label for="rawText" data-i18n="q_helper">Write in Urdu or English, however is easy.</label>
+          <textarea id="rawText" class="control" name="raw_text" placeholder="" data-i18n-ph="q_ph"
+            aria-describedby="rawHelper rawCount"></textarea>
+          <p class="helper" id="rawHelper" data-i18n="q_helper"></p>
+          <div class="char-count" id="rawCount" aria-live="polite"></div>
+          <div class="field-error" id="rawError" hidden></div>
+        </div>
+
+        <div class="field">
+          <label for="cityBox" data-i18n="city_label">City</label>
+          <div id="cityBox"></div>
+          <div class="field-error" id="cityError" hidden></div>
+        </div>
+        <div class="banner banner-warn small" id="unsupportedNote" hidden>
+          <span data-icon="info"></span><div data-i18n="unsupported_note"></div>
+        </div>
+
+        <div class="field">
+          <label for="areaInput" data-i18n="area_label">Area</label>
+          <input id="areaInput" class="control" type="text" name="area" data-i18n-ph="area_ph" aria-describedby="areaHelper">
+          <p class="helper" id="areaHelper" data-i18n="area_helper"></p>
+        </div>
+
+        <button type="submit" id="submitBtn" class="btn btn-primary btn-block" disabled>
+          <span data-i18n="submit">Draft my complaint</span>
+        </button>
+        <p class="helper" id="submitHint" data-i18n="submit_disabled" style="text-align:center; margin-top:8px"></p>
+      </form>
+    </section>
+
+    <section id="progressPanel" class="progress-panel" hidden aria-live="polite">
+      <div class="progress-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+      <p class="progress-msg" id="progressMsg"></p>
+    </section>
+  </main>
+
+  <script type="module" src="/js/file.js"></script>
+</body>
+</html>
