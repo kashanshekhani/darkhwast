@@ -1,0 +1,8 @@
+# dependencies (restored via package-lock.json)
+node_modules/
+
+# runtime state: re-created and seeded automatically on first server run
+data/
+
+# local secrets / environment
+.env
