@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DarKhwast - Complaint dashboard</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%230E6B5C'/><text x='16' y='21' font-size='13' font-family='monospace' text-anchor='middle' fill='white'>DK</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Public+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <div class="dash-layout">
+    <aside class="dash-side">
+      <a class="side-brand" href="/dashboard.html"><span class="dk-mark">DK</span> DarKhwast</a>
+      <div class="side-label">Complaints</div>
+      <nav class="side-nav" aria-label="Complaint filters" id="sideNav">
+        <button type="button" class="side-link active" data-nav="all">All complaints <span class="side-count" id="cnt-all"></span></button>
+        <button type="button" class="side-link" data-nav="attention">Needs attention <span class="side-count" id="cnt-attention"></span></button>
+        <button type="button" class="side-link" data-nav="sent">Sent</button>
+        <button type="button" class="side-link" data-nav="acknowledged">Acknowledged</button>
+        <button type="button" class="side-link" data-nav="in_progress">In progress</button>
+        <button type="button" class="side-link" data-nav="resolved">Resolved</button>
+      </nav>
+      <div class="side-foot">
+        <p class="side-note" id="sideNote"></p>
+        <button type="button" class="btn js-logout">Sign out</button>
+      </div>
+    </aside>
+
+    <div class="dash-main">
+      <header class="dash-head">
+        <div class="dash-head-inner">
+          <a class="wordmark" href="/dashboard.html"><span class="dk-mark">DK</span> DarKhwast <span style="font-weight:400; opacity:.8; font-size:13px">Dashboard</span></a>
+          <div style="display:flex; align-items:center; gap:12px">
+            <span class="who js-who"></span>
+            <button type="button" class="btn js-logout">Sign out</button>
+          </div>
+        </div>
+      </header>
+
+      <main id="main" class="dash-content">
+        <div class="banner banner-info" id="mailBanner" hidden></div>
+        <div id="statsRoot">
+          <div class="stat-grid">
+            <div class="stat-card"><div class="num skeleton" style="width:60px">&nbsp;</div><div class="lbl">&nbsp;</div></div>
+            <div class="stat-card"><div class="num skeleton" style="width:60px">&nbsp;</div><div class="lbl">&nbsp;</div></div>
+          </div>
+        </div>
+
+        <div class="filter-bar" id="filterBar">
+          <input type="search" class="control search" id="fSearch" placeholder="Search ID, area, text, department..." aria-label="Search complaints">
+          <select class="control" id="fCity" aria-label="Filter by city">
+            <option value="">All cities</option>
+            <option value="karachi">Karachi</option>
+            <option value="lahore">Lahore</option>
+            <option value="islamabad">Islamabad</option>
+            <option value="faisalabad">Faisalabad</option>
+          </select>
+          <select class="control" id="fCat" aria-label="Filter by category">
+            <option value="">All categories</option>
+            <option value="garbage">Garbage & waste</option>
+            <option value="streetlight">Streetlight</option>
+            <option value="water">Water supply</option>
+            <option value="sewage">Sewage</option>
+            <option value="road">Road damage</option>
+            <option value="other">Other</option>
+          </select>
+          <select class="control" id="fSev" aria-label="Filter by severity">
+            <option value="">All severity</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+          <select class="control" id="fStatus" aria-label="Filter by status">
+            <option value="">All statuses</option>
+            <option value="draft">Draft</option>
+            <option value="needs_review">Needs review</option>
+            <option value="sent">Sent</option>
+            <option value="send_failed">Send failed</option>
+            <option value="acknowledged">Acknowledged</option>
+            <option value="in_progress">In progress</option>
+            <option value="resolved">Resolved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <button type="button" class="preset-chip" id="attentionChip" aria-pressed="false">Needs attention</button>
+        </div>
+
+        <div class="table-wrap">
+          <table class="queue">
+            <thead>
+              <tr>
+                <th scope="col">ID</th><th scope="col">Category</th><th scope="col">Location</th>
+                <th scope="col">Department</th><th scope="col">Severity</th><th scope="col">Status</th>
+                <th scope="col">Age</th><th scope="col"><span class="visually-hidden">Open</span></th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="emptyState" hidden></div>
+      </main>
+    </div>
+  </div>
+
+  <script type="module" src="/js/dashboard.js"></script>
+</body>
+</html>

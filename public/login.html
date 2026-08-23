@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DarKhwast - Official sign in</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%230E6B5C'/><text x='16' y='21' font-size='13' font-family='monospace' text-anchor='middle' fill='white'>DK</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Public+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="wordmark" href="/"><span class="dk-mark">DK</span> DarKhwast</a>
+    </div>
+  </header>
+
+  <main id="main" class="shell" style="max-width:440px">
+    <div class="banner banner-error" id="loginError" role="alert" hidden></div>
+    <section class="card">
+      <h1 style="font-size:22px">Official sign in</h1>
+      <p class="muted small" style="margin-bottom:20px">Complaint management dashboard for government departments.</p>
+      <form id="loginForm" novalidate>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" class="control" type="email" autocomplete="username" placeholder="name@department.gov.pk" style="direction:ltr; text-align:start">
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" class="control" type="password" autocomplete="current-password" style="direction:ltr; text-align:start">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Sign in</button>
+      </form>
+      <div class="banner banner-info small" style="margin:20px 0 0">
+        <strong>Demo accounts</strong><br>
+        Operator: demo@darkhwast.pk / darkhwast2026<br>
+        Viewer (read-only): viewer@darkhwast.pk / darkhwast2026
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="/js/login.js"></script>
+</body>
+</html>
