@@ -3,44 +3,86 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>DarKhwast - Official sign in</title>
+  <title>Government Portal - DarKhwast</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%230E6B5C'/><text x='16' y='21' font-size='13' font-family='monospace' text-anchor='middle' fill='white'>DK</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Public+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Public+Sans:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/styles.css">
 </head>
-<body>
+<body class="login-body">
   <a class="skip" href="#main">Skip to content</a>
-  <header class="topbar">
-    <div class="topbar-inner">
-      <a class="wordmark" href="/"><span class="dk-mark">DK</span> DarKhwast</a>
-    </div>
-  </header>
-
-  <main id="main" class="shell" style="max-width:440px">
-    <div class="banner banner-error" id="loginError" role="alert" hidden></div>
-    <section class="card">
-      <h1 style="font-size:22px">Official sign in</h1>
-      <p class="muted small" style="margin-bottom:20px">Complaint management dashboard for government departments.</p>
-      <form id="loginForm" novalidate>
-        <div class="field">
-          <label for="email">Email</label>
-          <input id="email" class="control" type="email" autocomplete="username" placeholder="name@department.gov.pk" style="direction:ltr; text-align:start">
+  
+  <div class="login-split-layout">
+    <div class="login-left">
+      <div class="ll-content">
+        <a class="wordmark login-wordmark" href="/">
+          <span class="dk-mark">DK</span> DarKhwast
+        </a>
+        <h1 class="login-heading">Government Complaint Portal</h1>
+        <p class="login-subtext">Secure access for authorized government departments to manage and respond to citizen complaints.</p>
+        
+        <div class="login-workflow">
+          <div class="wf-step">
+            <div class="wf-icon wf-new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></div>
+            <span>New Complaint</span>
+          </div>
+          <div class="wf-arrow">&rarr;</div>
+          <div class="wf-step">
+            <div class="wf-icon wf-assigned"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg></div>
+            <span>Assigned</span>
+          </div>
+          <div class="wf-arrow">&rarr;</div>
+          <div class="wf-step">
+            <div class="wf-icon wf-progress"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div>
+            <span>In Progress</span>
+          </div>
+          <div class="wf-arrow">&rarr;</div>
+          <div class="wf-step">
+            <div class="wf-icon wf-resolved"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></div>
+            <span>Resolved</span>
+          </div>
         </div>
-        <div class="field">
-          <label for="password">Password</label>
-          <input id="password" class="control" type="password" autocomplete="current-password" style="direction:ltr; text-align:start">
-        </div>
-        <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Sign in</button>
-      </form>
-      <div class="banner banner-info small" style="margin:20px 0 0">
-        <strong>Demo accounts</strong><br>
-        Operator: demo@darkhwast.pk / darkhwast2026<br>
-        Viewer (read-only): viewer@darkhwast.pk / darkhwast2026
       </div>
-    </section>
-  </main>
+    </div>
+    
+    <div class="login-right">
+      <main id="main" class="login-form-container">
+        <a href="/" class="back-home-link">&larr; Back to Home</a>
+        
+        <div class="banner banner-error" id="loginError" role="alert" hidden></div>
+        
+        <section class="card login-card">
+          <h2>Sign in to Government Portal</h2>
+          <div class="security-badge">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            Authorized government personnel only
+          </div>
+          
+          <form id="loginForm" novalidate style="margin-top: 24px;">
+            <div class="field">
+              <label for="email">Official Email</label>
+              <input id="email" class="control" type="email" autocomplete="username" placeholder="name@department.gov.pk" style="direction:ltr; text-align:start">
+            </div>
+            <div class="field">
+              <label for="password">Password</label>
+              <input id="password" class="control" type="password" autocomplete="current-password" style="direction:ltr; text-align:start">
+            </div>
+            <div class="forgot-row" style="text-align: right; margin-top: -12px; margin-bottom: 24px;">
+              <button type="button" class="btn-link small" onclick="alert('Password recovery is currently unavailable.')">Forgot password?</button>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Sign In &rarr;</button>
+          </form>
+          
+          <div class="banner banner-info small" style="margin-top:24px">
+            <strong>Demo accounts</strong><br>
+            Operator: demo@darkhwast.pk / darkhwast2026<br>
+            Viewer (read-only): viewer@darkhwast.pk / darkhwast2026
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
 
   <script type="module" src="/js/login.js"></script>
 </body>

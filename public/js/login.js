@@ -9,11 +9,19 @@ form.addEventListener('submit', async (e) => {
   errBox.hidden = true;
   const email = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value;
-  if (!email || !password) {
-    errBox.textContent = 'Enter your email and password.';
+  
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errBox.textContent = 'Please enter a valid email address.';
     errBox.hidden = false;
     return;
   }
+  
+  if (!password) {
+    errBox.textContent = 'Please enter your password.';
+    errBox.hidden = false;
+    return;
+  }
+  
   btn.disabled = true;
   btn.innerHTML = '<span class="spin"></span>Signing in...';
   try {
@@ -22,9 +30,9 @@ form.addEventListener('submit', async (e) => {
     sessionStorage.setItem('dk_official', JSON.stringify(data.official));
     location.href = '/dashboard.html';
   } catch (err) {
-    errBox.textContent = err.message;
+    errBox.textContent = err.message === 'Failed to fetch' ? 'Unable to connect to the server. Please try again.' : err.message;
     errBox.hidden = false;
     btn.disabled = false;
-    btn.textContent = 'Sign in';
+    btn.innerHTML = 'Sign In &rarr;';
   }
 });

@@ -18,3 +18,34 @@ document.getElementById('trackForm').addEventListener('submit', (e) => {
   }
   location.href = `/track.html?tid=${encodeURIComponent(tid)}`;
 });
+
+// hide the error again as soon as the citizen edits the ID
+document.getElementById('tidInput').addEventListener('input', () => {
+  document.getElementById('tidError').hidden = true;
+  document.getElementById('tidInput').removeAttribute('aria-invalid');
+});
+
+// close the mobile menu after choosing a destination
+const mobileMenu = document.getElementById('mobileMenu');
+mobileMenu?.querySelectorAll('a').forEach((a) => {
+  a.addEventListener('click', () => {
+    mobileMenu.hidden = true;
+    document.getElementById('hamburgerBtn')?.setAttribute('aria-expanded', 'false');
+  });
+});
+
+// subtle entrance animation; CSS disables it under prefers-reduced-motion
+const revealEls = document.querySelectorAll('.reveal');
+if ('IntersectionObserver' in window) {
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('in');
+        io.unobserve(entry.target);
+      }
+    });
+  }, { rootMargin: '0px 0px -8% 0px' });
+  revealEls.forEach((el) => io.observe(el));
+} else {
+  revealEls.forEach((el) => el.classList.add('in'));
+}

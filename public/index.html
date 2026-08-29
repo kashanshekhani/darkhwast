@@ -3,91 +3,416 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>DarKhwast - AI complaint router for local government</title>
+  <title>DarKhwast — Your complaint. The right department.</title>
+  <meta name="description" content="Describe your civic problem in Urdu or English. DarKhwast understands it, drafts a formal complaint, routes it to the right department, and lets you track it.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%230E6B5C'/><text x='16' y='21' font-size='13' font-family='monospace' text-anchor='middle' fill='white'>DK</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Noto+Naskh+Arabic:wght@400;500;700&family=Public+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Noto+Naskh+Arabic:wght@400;500;700&family=Public+Sans:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/landing.css">
   <script>try{var l=localStorage.getItem('dk_lang')||'ur';document.documentElement.lang=l;document.documentElement.dir=l==='ur'?'rtl':'ltr';}catch(e){}</script>
 </head>
 <body>
   <a class="skip" href="#main" data-i18n="skip">Skip to content</a>
-  <header class="topbar">
-    <div class="topbar-inner">
-      <a class="wordmark" href="/"><span class="dk-mark">DK</span> DarKhwast <span class="muted small lat" style="font-weight:400" data-i18n="tagline" lang="en">AI complaint router</span></a>
-      <button type="button" class="lang-toggle" data-i18n="lang_name">English</button>
+
+  <!-- ================= Navbar ================= -->
+  <header class="lp-nav">
+    <div class="lp-nav-inner">
+      <a class="lp-brand" href="/" aria-label="DarKhwast home">
+        <span class="lp-brand-mark">DK</span>
+        <span class="lp-brand-name">DarKhwast</span>
+        <span class="lp-brand-tag">· درخواست</span>
+      </a>
+      <nav class="lp-nav-links" aria-label="Main navigation">
+        <a href="/" data-i18n="nav_home">Home</a>
+        <a href="#how-it-works" data-i18n="nav_hiw">How It Works</a>
+        <a href="#features" data-i18n="nav_features">Features</a>
+        <a href="#about" data-i18n="nav_about">About</a>
+        <a href="#track" data-i18n="nav_track">Track Complaint</a>
+      </nav>
+      <div class="lp-nav-actions">
+        <a href="/file.html" class="lp-btn lp-btn-primary lp-btn-sm" data-i18n="cta_file_short">File a Complaint</a>
+        <button type="button" class="lp-lang lang-toggle" data-i18n="lang_name">English</button>
+        <button type="button" id="hamburgerBtn" class="lp-burger" aria-label="Menu" aria-expanded="false" aria-controls="mobileMenu">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+        </button>
+      </div>
+    </div>
+    <div id="mobileMenu" class="lp-mobile-menu" hidden>
+      <a href="/" data-i18n="nav_home">Home</a>
+      <a href="#how-it-works" data-i18n="nav_hiw">How It Works</a>
+      <a href="#features" data-i18n="nav_features">Features</a>
+      <a href="#about" data-i18n="nav_about">About</a>
+      <a href="#track" data-i18n="nav_track">Track Complaint</a>
+      <div class="lp-mobile-cta">
+        <a href="/file.html" class="lp-btn lp-btn-primary" data-i18n="cta_file">File a Complaint</a>
+        <button type="button" class="lp-lang lang-toggle" data-i18n="lang_name">English</button>
+      </div>
     </div>
   </header>
 
-  <main id="main" class="shell shell-landing">
-    <section class="hero">
-      <div class="hero-copy">
-        <h1 data-i18n="hero_title">مسئلہ بتائیں، درخواست صحیح دفتر تک پہنچائیں گے</h1>
-        <p class="sub" data-i18n="hero_sub"></p>
-        <div class="trust-row" role="list">
-          <span class="trust" role="listitem"><span data-icon="file"></span><span data-i18n="trust1"></span></span>
-          <span class="trust" role="listitem"><span data-icon="shield"></span><span data-i18n="trust2"></span></span>
-          <span class="trust" role="listitem"><span data-icon="check"></span><span data-i18n="trust3"></span></span>
-        </div>
-        <a class="btn btn-primary btn-block" href="/file.html" data-i18n="cta_file">شکایت درج کریں</a>
-      </div>
-      <div class="hero-art" aria-hidden="true">
-        <span class="stamp-mark fa-stamp" style="font-size:15px; padding:3px 12px">SENT</span>
-        <div class="letter-card" style="padding:20px">
-          <div class="letter-head" style="margin-bottom:8px">
-            <div>
-              <div class="lh-title lat" lang="en">DARKHWAST</div>
-              <div class="small muted mono lat" lang="en" style="direction:ltr; text-align:start">DK-2026-M4K9PA</div>
+  <main id="main">
+
+    <!-- ================= Hero ================= -->
+    <section class="lp-hero">
+      <div class="lp-container">
+        <div class="lp-hero-grid">
+          <div class="reveal">
+            <p class="lp-eyebrow">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3z"/></svg>
+              <span data-i18n="hero_badge">AI-assisted civic complaint service</span>
+            </p>
+            <h1 class="lp-hero-title lp-display">
+              <span data-i18n="hero_title_1">Your complaint.</span>
+              <span class="lp-hl2" data-i18n="hero_title_2">The right department.</span>
+            </h1>
+            <p class="lp-hero-sub" data-i18n="hero_sub">Describe a civic problem in Urdu or English. DarKhwast uses AI to understand your complaint, prepare it properly, and route it to the department responsible for your city.</p>
+            <div class="lp-hero-ctas">
+              <a class="lp-btn lp-btn-primary lp-btn-lg" href="/file.html" data-i18n="cta_file">File a Complaint</a>
+              <a class="lp-btn lp-btn-ghost lp-btn-lg" href="#track" data-i18n="cta_track">Track a Complaint</a>
             </div>
-            <svg class="seal" style="width:56px;height:56px" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="46" fill="none" stroke="#0E6B5C" stroke-width="3"/>
-              <circle cx="50" cy="50" r="36" fill="none" stroke="#0E6B5C" stroke-width="1.5"/>
-              <text x="50" y="47" text-anchor="middle" font-family="monospace" font-size="17" font-weight="600" fill="#0E6B5C">DK</text>
-              <text x="50" y="64" text-anchor="middle" font-family="sans-serif" font-size="8" fill="#0E6B5C" letter-spacing="1.6">DARKHWAST</text>
-            </svg>
+            <ul class="lp-trust">
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5 10 18 20 6"/></svg><span data-i18n="trust1">No login</span></li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5 10 18 20 6"/></svg><span data-i18n="trust2">Anonymous by default</span></li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5 10 18 20 6"/></svg><span data-i18n="trust3">Free</span></li>
+            </ul>
+            <p class="lp-cities" data-i18n="cities_line">Now serving: Karachi, Lahore, Islamabad, Faisalabad</p>
           </div>
-          <div class="fa-line w60"></div><div class="fa-line w85"></div><div class="fa-line"></div>
-          <div class="fa-line w85"></div><div class="fa-line w40"></div>
-        </div>
-        <span class="fa-tid lat" lang="en">DK-2026-M4K9PA</span>
-      </div>
-    </section>
 
-    <section class="steps" aria-label="How it works">
-      <div class="step-card">
-        <div class="n-ic"><span data-icon="file"></span></div>
-        <div><h3 data-i18n="step1_t"></h3><p data-i18n="step1_d"></p></div>
-      </div>
-      <div class="step-card">
-        <div class="n-ic"><span data-icon="send"></span></div>
-        <div><h3 data-i18n="step2_t"></h3><p data-i18n="step2_d"></p></div>
-      </div>
-      <div class="step-card">
-        <div class="n-ic"><span data-icon="copy"></span></div>
-        <div><h3 data-i18n="step3_t"></h3><p data-i18n="step3_d"></p></div>
-      </div>
-    </section>
-
-    <section class="card" aria-labelledby="trackH">
-      <h2 id="trackH" data-i18n="cta_track">Track a complaint</h2>
-      <form id="trackForm" novalidate>
-        <div class="field">
-          <label for="tidInput" data-i18n="track_label">Tracking ID</label>
-          <div class="track-inline">
-            <input id="tidInput" class="control mono" type="text" inputmode="latin" placeholder="DK-2026-..." data-i18n-ph="track_ph" autocomplete="off" style="direction:ltr; text-align:start">
-            <button type="submit" class="btn btn-secondary" data-i18n="track_go">Track</button>
+          <div class="lp-hero-media reveal" aria-hidden="true">
+            <figure class="lp-hm-a"><img src="/assets/Roads & Potholes.jpg" alt=""></figure>
+            <figure class="lp-hm-b"><img src="/assets/Garbage & Waste.jpg" alt=""></figure>
+            <figure class="lp-hm-c"><img src="/assets/Water Supply.jpg" alt=""></figure>
           </div>
-          <div class="field-error" id="tidError" hidden data-i18n="track_invalid"></div>
         </div>
-      </form>
+      </div>
     </section>
 
-    <p class="small muted" style="margin-top:24px" data-i18n="cities_line"></p>
+    <!-- ================= Common problems ================= -->
+    <section class="lp-problems">
+      <div class="lp-container">
+        <div class="lp-sec-head reveal">
+          <p class="lp-eyebrow"><span data-i18n="problems_eyebrow">Common problems</span></p>
+          <h2 data-i18n="problems_title">Problems people report every day</h2>
+          <p data-i18n="problems_sub">From power cuts and gas issues to broken roads and water shortages — DarKhwast turns everyday civic problems into structured complaints that reach the right office.</p>
+        </div>
+        <div class="lp-problems-grid">
+          <figure class="lp-pcard reveal">
+            <img src="/assets/No Electricity.jpg" alt="Fallen power line — electricity problem" loading="lazy">
+            <figcaption>
+              <h3 data-i18n="prob_power_t">No Electricity</h3>
+              <p data-i18n="prob_power_d">Power outages, faulty lines, and streetlight failures.</p>
+            </figcaption>
+          </figure>
+          <figure class="lp-pcard reveal">
+            <img src="/assets/No Gas.jpg" alt="Gas supply problem" loading="lazy">
+            <figcaption>
+              <h3 data-i18n="prob_gas_t">Gas Problems</h3>
+              <p data-i18n="prob_gas_d">Low pressure, supply interruptions, and leak reports.</p>
+            </figcaption>
+          </figure>
+          <figure class="lp-pcard reveal">
+            <img src="/assets/Roads & Potholes.jpg" alt="Road damaged by potholes" loading="lazy">
+            <figcaption>
+              <h3 data-i18n="prob_roads_t">Poor Roads</h3>
+              <p data-i18n="prob_roads_d">Potholes, broken streets, and unsafe road surfaces.</p>
+            </figcaption>
+          </figure>
+          <figure class="lp-pcard reveal">
+            <img src="/assets/Water Supply.jpg" alt="Water supply shortage" loading="lazy">
+            <figcaption>
+              <h3 data-i18n="prob_water_t">Water Supply</h3>
+              <p data-i18n="prob_water_d">Shortages, pipe leaks, and contamination concerns.</p>
+            </figcaption>
+          </figure>
+          <figure class="lp-pcard reveal">
+            <img src="/assets/Garbage & Waste.jpg" alt="Uncollected garbage" loading="lazy">
+            <figcaption>
+              <h3 data-i18n="prob_garbage_t">Garbage &amp; Waste</h3>
+              <p data-i18n="prob_garbage_d">Uncollected trash, illegal dumping, and sanitation.</p>
+            </figcaption>
+          </figure>
+          <figure class="lp-pcard reveal">
+            <img src="/assets/Sewerage & Drainage.jpg" alt="Blocked sewerage and drainage" loading="lazy">
+            <figcaption>
+              <h3 data-i18n="prob_sewage_t">Sewerage &amp; Drainage</h3>
+              <p data-i18n="prob_sewage_d">Blocked gutters, overflowing sewers, stagnant water.</p>
+            </figcaption>
+          </figure>
+          <figure class="lp-pcard reveal">
+            <img src="/assets/Flooding & Rainwater.jfif" alt="Flooding after rain" loading="lazy">
+            <figcaption>
+              <h3 data-i18n="prob_flood_t">Flooding &amp; Rainwater</h3>
+              <p data-i18n="prob_flood_d">Standing rainwater, urban flooding, blocked storm drains.</p>
+            </figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
 
-    <footer class="site-footer" data-i18n="disclaimer"></footer>
+    <!-- ================= Why DarKhwast ================= -->
+    <section class="lp-why">
+      <div class="lp-container">
+        <div class="lp-sec-head lp-sec-center reveal" style="max-width:720px">
+          <h2 data-i18n="why_title">You shouldn't need to know which department handles your problem.</h2>
+          <p class="lp-why-sub" data-i18n="why_sub">Just describe the issue in your own words. DarKhwast works out the rest.</p>
+        </div>
+        <ol class="lp-why-list reveal" style="margin-inline:auto">
+          <li><span class="lp-why-num">01</span><strong data-i18n="why_1">What the problem is</strong></li>
+          <li><span class="lp-why-num">02</span><strong data-i18n="why_2">Where it is</strong></li>
+          <li><span class="lp-why-num">03</span><strong data-i18n="why_3">Which department should handle it</strong></li>
+          <li><span class="lp-why-num">04</span><strong data-i18n="why_4">How the complaint should be written</strong></li>
+          <li><span class="lp-why-num">05</span><strong data-i18n="why_5">How you can track it</strong></li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ================= How it works ================= -->
+    <section class="lp-hiw" id="how-it-works">
+      <div class="lp-container">
+        <div class="lp-sec-head reveal">
+          <p class="lp-eyebrow"><span data-i18n="hiw_eyebrow">Four steps</span></p>
+          <h2 data-i18n="hiw_title">How it works</h2>
+          <p data-i18n="hiw_sub">From a few messy sentences to a stamped complaint in the right inbox — usually under two minutes.</p>
+        </div>
+        <ol class="lp-hiw-steps">
+          <li class="lp-step reveal">
+            <span class="lp-step-node">01</span>
+            <h3 data-i18n="step1_t">Describe</h3>
+            <p data-i18n="step1_d_new">Tell us about the civic problem in your own words — Urdu or English.</p>
+          </li>
+          <li class="lp-step reveal">
+            <span class="lp-step-node">02</span>
+            <h3 data-i18n="step2_t_new">Add details</h3>
+            <p data-i18n="step2_d_new">Attach photos, share your location, and add contact details if you want a reply.</p>
+          </li>
+          <li class="lp-step reveal">
+            <span class="lp-step-node">03</span>
+            <h3 data-i18n="step3_t_new">Review</h3>
+            <p data-i18n="step3_d_new">AI understands the issue and prepares a professional complaint you can edit.</p>
+          </li>
+          <li class="lp-step reveal">
+            <span class="lp-step-node">04</span>
+            <h3 data-i18n="step4_t_new">Submit &amp; track</h3>
+            <p data-i18n="step4_d_new">Send it to the responsible department and track it with your reference number.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ================= Features ================= -->
+    <section class="lp-features" id="features">
+      <div class="lp-container">
+        <div class="lp-sec-head reveal">
+          <p class="lp-eyebrow"><span data-i18n="feat_eyebrow">Everything included</span></p>
+          <h2 data-i18n="feat_title">Built for how people actually complain</h2>
+          <p data-i18n="feat_sub">No accounts, no forms, no office visits. Everything you need to be heard.</p>
+        </div>
+        <div class="lp-feature-grid">
+          <div class="lp-feature reveal">
+            <span class="lp-fic" data-icon="garbage"></span>
+            <div>
+              <h3 data-i18n="feat_voice_t">Voice complaints</h3>
+              <p data-i18n="feat_voice_d">Speak instead of typing — your words become the complaint.</p>
+            </div>
+          </div>
+          <div class="lp-feature reveal">
+            <span class="lp-fic" data-icon="other"></span>
+            <div>
+              <h3 data-i18n="feat_lang_t">Urdu &amp; English</h3>
+              <p data-i18n="feat_lang_d">Write in either language, mix them if you like.</p>
+            </div>
+          </div>
+          <div class="lp-feature reveal">
+            <span class="lp-fic" data-icon="file"></span>
+            <div>
+              <h3 data-i18n="feat_photo_t">Photo evidence</h3>
+              <p data-i18n="feat_photo_d">Attach up to five photos so the office sees the problem.</p>
+            </div>
+          </div>
+          <div class="lp-feature reveal">
+            <span class="lp-fic" data-icon="streetlight"></span>
+            <div>
+              <h3 data-i18n="feat_loc_t">Location</h3>
+              <p data-i18n="feat_loc_d">Share your area or exact spot with one tap.</p>
+            </div>
+          </div>
+          <div class="lp-feature reveal">
+            <span class="lp-fic" data-icon="search"></span>
+            <div>
+              <h3 data-i18n="feat_ai_t">AI classification</h3>
+              <p data-i18n="feat_ai_d">The issue type is identified automatically — no jargon needed.</p>
+            </div>
+          </div>
+          <div class="lp-feature reveal">
+            <span class="lp-fic" data-icon="inbox"></span>
+            <div>
+              <h3 data-i18n="feat_route_t">Smart department routing</h3>
+              <p data-i18n="feat_route_d">Your complaint goes to the office responsible for your city.</p>
+            </div>
+          </div>
+          <div class="lp-feature reveal">
+            <span class="lp-fic" data-icon="send"></span>
+            <div>
+              <h3 data-i18n="feat_email_t">Email confirmation</h3>
+              <p data-i18n="feat_email_d">Get your tracking ID instantly; updates by email if you share it.</p>
+            </div>
+          </div>
+          <div class="lp-feature reveal">
+            <span class="lp-fic" data-icon="check"></span>
+            <div>
+              <h3 data-i18n="feat_track_t">Complaint tracking</h3>
+              <p data-i18n="feat_track_d">Follow the status from filed to resolved — no login needed.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= Complaint example ================= -->
+    <section class="lp-example">
+      <div class="lp-container">
+        <div class="lp-sec-head lp-sec-center reveal" style="max-width:640px">
+          <h2 data-i18n="ex_title">One sentence becomes a formal complaint</h2>
+          <p data-i18n="ex_sub">You say it plainly. We make it official — without inventing anything you didn't say.</p>
+        </div>
+        <div class="lp-ex-wrap reveal">
+          <div class="lp-ex-panel">
+            <span class="lp-ex-label" data-i18n="ex_label_you">The citizen says</span>
+            <blockquote class="lp-ex-quote" lang="ur" data-i18n="ex_quote">Hamari street ki light 3 din se band hai.</blockquote>
+          </div>
+          <div class="lp-ex-arrow" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="20" y2="12"/><polyline points="13 5 20 12 13 19"/></svg>
+          </div>
+          <div class="lp-ex-panel">
+            <span class="lp-ex-label" data-i18n="ex_label_dk">DarKhwast prepares</span>
+            <div class="lp-ex-doc">
+              <div class="lp-ex-meta">
+                <div><strong data-i18n="ex_cat_label">Category</strong> <span data-i18n="ex_cat_value">Streetlight / public lighting</span></div>
+                <div><strong data-i18n="ex_loc_label">Location</strong> <span data-i18n="ex_loc_value">Citizen-provided location</span></div>
+              </div>
+              <span class="lp-ex-doclabel" data-i18n="ex_doclabel">Professional complaint</span>
+              <p class="lp-ex-body" data-i18n="ex_body">A non-functional streetlight has been reported at the citizen-provided location. The citizen states that the streetlight has not been working for the past three days.</p>
+            </div>
+          </div>
+        </div>
+        <p class="lp-ex-note reveal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01"/><path d="M12 11v5"/></svg>
+          <span data-i18n="ex_note">DarKhwast never invents facts — the complaint stays true to what you reported.</span>
+        </p>
+      </div>
+    </section>
+
+    <!-- ================= Track ================= -->
+    <section class="lp-track" id="track">
+      <div class="lp-container">
+        <div class="lp-track-inner reveal">
+          <p class="lp-eyebrow" style="justify-content:center"><span data-i18n="track_eyebrow">Check status</span></p>
+          <h2 data-i18n="track_title_lp">Track your complaint</h2>
+          <p data-i18n="track_sub_lp">Enter your DarKhwast reference number to see the latest status.</p>
+          <div class="lp-track-card">
+            <form id="trackForm" novalidate>
+              <label for="tidInput" class="sr-only" data-i18n="track_label">Tracking ID</label>
+              <div class="lp-track-row">
+                <input id="tidInput" class="lp-input" type="text" inputmode="latin" placeholder="DK-2026-372HTP" autocomplete="off" data-i18n-ph="track_ph_lp" style="direction:ltr; text-align:start">
+                <button type="submit" class="lp-btn lp-btn-primary"><span data-i18n="track_go_lp">Track Complaint</span>&nbsp;<span class="lp-arr" aria-hidden="true">→</span></button>
+              </div>
+              <div class="lp-field-error" id="tidError" hidden data-i18n="track_invalid">Invalid tracking ID</div>
+            </form>
+            <p class="lp-track-hint" data-i18n="track_hint">Your reference looks like DK-2026-XXXXXX and appears on your receipt and confirmation email.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= About ================= -->
+    <section class="lp-about" id="about">
+      <div class="lp-container">
+        <div class="lp-about-grid">
+          <div class="lp-about-copy reveal">
+            <p class="lp-eyebrow"><span data-i18n="about_eyebrow">About DarKhwast</span></p>
+            <h2 data-i18n="about_title">A darkhwast — a formal petition — for every citizen.</h2>
+            <p data-i18n="about_p1">In Pakistan, a darkhwast is a typed, stamped, receipted petition. DarKhwast brings that idea online: anyone can describe a civic problem in plain language and get a properly addressed, professional complaint — without knowing which office to contact.</p>
+            <p data-i18n="about_p2">Complaints are classified with AI, drafted as formal letters, and emailed to the government department responsible for the citizen's city. Citizens stay anonymous by default and can track everything on a public page.</p>
+            <p class="lp-about-disc" data-i18n="disclaimer">DarKhwast drafts, routes and tracks your complaint up to the department. Departments act on their own authority.</p>
+          </div>
+          <aside class="lp-about-card reveal">
+            <h3 style="font-size:17px; margin-bottom:4px" data-i18n="about_cities_t">Where we operate</h3>
+            <p style="font-size:14px; color:var(--lp-muted); margin-bottom:6px" data-i18n="about_cities_sub">Growing city by city.</p>
+            <ul class="lp-city-list">
+              <li><span class="lp-city-en">Karachi</span><span class="lp-city-ur">کراچی</span></li>
+              <li><span class="lp-city-en">Lahore</span><span class="lp-city-ur">لاہور</span></li>
+              <li><span class="lp-city-en">Islamabad</span><span class="lp-city-ur">اسلام آباد</span></li>
+              <li><span class="lp-city-en">Faisalabad</span><span class="lp-city-ur">فیصل آباد</span></li>
+            </ul>
+            <p class="lp-about-note" data-i18n="about_cities_note">Built for the Bano Qabil × Alibaba Cloud Launch AI Hackathon 2026.</p>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= Final CTA ================= -->
+    <section class="lp-final lp-center">
+      <div class="lp-container">
+        <h2 class="reveal" data-i18n="final_title">Have a civic problem?</h2>
+        <p class="reveal" data-i18n="final_sub">Tell us what happened. We'll help take it from there.</p>
+        <div class="lp-final-actions reveal">
+          <a href="/file.html" class="lp-btn lp-btn-primary lp-btn-lg" data-i18n="cta_file">File a Complaint</a>
+          <a href="#track" class="lp-btn lp-btn-outline-light lp-btn-lg" data-i18n="cta_track">Track Complaint</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= Footer ================= -->
+    <footer class="lp-footer">
+      <div class="lp-container">
+        <div class="lp-footer-grid">
+          <div class="lp-footer-brand">
+            <a class="lp-brand" href="/">
+              <span class="lp-brand-mark">DK</span>
+              <span class="lp-brand-name">DarKhwast</span>
+            </a>
+            <p data-i18n="footer_desc">AI-assisted civic complaint service for Pakistan. Describe the problem — we'll get it to the right department.</p>
+          </div>
+          <div>
+            <h3 data-i18n="footer_nav_t">Navigation</h3>
+            <nav aria-label="Footer navigation">
+              <a href="/" data-i18n="nav_home">Home</a>
+              <a href="#how-it-works" data-i18n="nav_hiw">How It Works</a>
+              <a href="#features" data-i18n="nav_features">Features</a>
+              <a href="#about" data-i18n="nav_about">About</a>
+            </nav>
+          </div>
+          <div>
+            <h3 data-i18n="footer_act_t">Take action</h3>
+            <nav aria-label="Footer actions">
+              <a href="/file.html" data-i18n="cta_file">File a Complaint</a>
+              <a href="#track" data-i18n="nav_track">Track Complaint</a>
+            </nav>
+          </div>
+        </div>
+        <div class="lp-footer-bottom">
+          <span data-i18n="footer_rights">DarKhwast — a civic-tech prototype.</span>
+          <span class="mono">DK-2026</span>
+        </div>
+      </div>
+    </footer>
   </main>
 
   <script type="module" src="/js/index.js"></script>
+  <script>
+    // hamburger menu + aria state
+    document.addEventListener('DOMContentLoaded', () => {
+      const btn = document.getElementById('hamburgerBtn');
+      const menu = document.getElementById('mobileMenu');
+      if (btn && menu) {
+        btn.addEventListener('click', () => {
+          const open = !menu.hidden;
+          menu.hidden = open;
+          btn.setAttribute('aria-expanded', String(!open));
+        });
+      }
+    });
+  </script>
 </body>
 </html>

@@ -41,6 +41,8 @@ npm start
 
 Open **http://localhost:3000** — the citizen flow is on the landing page, and the official dashboard is at `/login.html`.
 
+Run the unit test suite (classifier accuracy set, letter builder, utils) with `npm test`.
+
 On Windows you can also double-click `run.bat`, which starts the server using Node from your `PATH`.
 
 **No API keys or database needed.** Out of the box, DarKhwast runs in demo-safe mode:
@@ -71,6 +73,8 @@ Copy `.env.example` to `.env` and fill in what you need. Everything is optional.
 | `MAIL_FROM` | Sender address for outbound complaints. |
 | `PUBLIC_BASE_URL` | Base URL used in tracking links inside letters. |
 | `SEED_SAMPLES` | Set `false` to start with an empty database. |
+| `TRUST_PROXY` | Set `true` only behind a trusted reverse proxy, so rate limiting reads the real client IP from `X-Forwarded-For`. Keep `false` otherwise. |
+| `SESSION_TTL_HOURS` | Lifetime of official login sessions; defaults to `168` (7 days). |
 
 Reset to a clean demo state at any time:
 
@@ -109,8 +113,9 @@ npm run reset
 **Under the hood**
 
 - Routing is **selection, not invention**: the LLM may only choose from a curated department knowledge base (15 entries across Karachi, Lahore, Islamabad, Faisalabad, plus cantonment/national coverage); invalid picks fall back to a deterministic resolver
-- Rate limiting (3 complaints/hour per IP) and a profanity screen before anything is sent in the product's name
-- Graceful degradation everywhere: no API key → rules engine; no SMTP → simulated dispatch; delivery failure → `send_failed` state surfaced to operators, never silently dropped
+- Rate limiting on every public action (3 complaints/hour per IP, plus sends, logins, and public reads) and a profanity screen before anything is sent in the product's name
+- Graceful degradation everywhere: no API key → rules engine; no SMTP → simulated dispatch; delivery failure → one automatic retry, then `send_failed` state surfaced to operators, never silently dropped
+- Uploaded evidence images are served from a flat, validated namespace; the public complaint API only answers to unguessable record IDs — tracking IDs unlock the PII-free tracking view only
 
 ## Architecture
 
@@ -130,6 +135,8 @@ public/
   login · dashboard · complaint.html            Official dashboard (English)
   css/styles.css          Design tokens + components (see DESIGN.md)
   js/                     i18n, shared helpers, one module per page
+  js/constants.js         Single source of city/category lists for the UI
+test/                    node:test suite: classifier accuracy, letter builder, utils
 ```
 
 The datastore lives in `data/db.json` (gitignored): it is created and seeded automatically on first run and written atomically on every mutation.
@@ -177,5 +184,5 @@ Honest boundaries, stated so the demo stays credible:
 
 - Department emails in `lib/seed.js` are public-directory placeholders marked `verified: false` — verify each one before enabling real outbound sending, and confirm with the hackathon organizers that sending to real offices on citizens' behalf is permitted
 - The offline classifier is keyword-based; the Qwen path (via `DASHSCOPE_API_KEY`) is both the production mode and the hackathon's Alibaba Cloud story
-- Auth is prototype-grade (bearer tokens, no expiry hardening) — fine for the demo, not production
+- Auth is prototype-grade (bearer tokens with expiry, scrypt-hashed passwords with a legacy-hash migration path) — fine for the demo, not production
 - Citizen-facing system event notes are English-only in this version

@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
+    "test": "node --test",
     "reset": "node -e \"import('./lib/db.js').then(m=>m.resetDb())\""
   },
   "dependencies": {

@@ -1,5 +1,6 @@
-// Review & send (S3): classification strip with citizen correction, the letter
-// artifact, anonymous/identified identity block, confirm modal, dispatch.
+// Review & send (S3): structured 5-section layout:
+//   1. Complaint Summary  2. Complaint Letter  3. Evidence  4. Submission Info  5. Actions
+// Category correction chips, edit-letter mode, anonymous toggle, confirm modal.
 
 import { initLang, t, tv } from './i18n.js';
 import { api, bindLangToggle, esc, icon, CATEGORY_ICON, initOfflineBanner, mountIcons, sealSvg, toast, qs, isPhoneLike, isEmailLike } from './shared.js';
@@ -13,12 +14,13 @@ let complaint = null;
 let letterText = null;      // citizen-edited letter (null = use server draft)
 let chipsOpen = false;
 let sending = false;
+let anonState = true;       // tracked independently so re-renders don't reset it
 
 const CATS = ['garbage', 'streetlight', 'water', 'sewage', 'road', 'other'];
 
 function catLabel(c) { return tv('categories', c); }
 function needsPick(c) {
-  return c.status === 'needs_review' || c.ai_confidence < 0.6 || !c.category || c.category === 'other' && c.ai_confidence < 0.6;
+  return c.status === 'needs_review' || c.ai_confidence < 0.6 || (!c.category || c.category === 'other' && c.ai_confidence < 0.6);
 }
 
 async function load() {
@@ -27,6 +29,7 @@ async function load() {
   try {
     const data = await api(`/api/complaints/${encodeURIComponent(id)}`);
     complaint = data.complaint;
+    anonState = complaint.is_anonymous !== false;
     if (['sent', 'acknowledged', 'in_progress', 'resolved', 'rejected'].includes(complaint.status)) {
       location.href = `/sent.html?id=${encodeURIComponent(id)}`;
       return;
@@ -40,89 +43,264 @@ async function load() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Parse a flat letter string into named sections for document-style rendering.
+// The letter format from letter.js is well-structured with blank-line separators.
+// ---------------------------------------------------------------------------
+function parseLetter(text) {
+  const lines = String(text || '').split('\n');
+  const sections = {
+    date: '', ref: '',
+    to: [], subject: '', salutation: '',
+    body: [], request: '',
+    divider: false,
+    identity: [], closing: [], signature: [], tracking: '',
+  };
+
+  let phase = 'header';
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    if (phase === 'header') {
+      if (line.startsWith('Date:')) { sections.date = line.replace('Date:', '').trim(); continue; }
+      if (line.startsWith('Reference:')) { sections.ref = line.replace('Reference:', '').trim(); continue; }
+      if (line === 'To,') { phase = 'to'; continue; }
+    }
+    if (phase === 'to') {
+      if (line.startsWith('Subject:')) {
+        sections.subject = line.replace('Subject:', '').trim();
+        phase = 'body';
+        continue;
+      }
+      sections.to.push(line);
+      continue;
+    }
+    if (phase === 'body') {
+      if (line.startsWith('Respected')) { sections.salutation = line; continue; }
+      if (line === '---') { sections.divider = true; phase = 'identity'; continue; }
+      if (line.startsWith('I kindly request') || line.startsWith('I request that') || line.startsWith('Yours sincerely')) {
+        if (line.startsWith('Yours sincerely')) { phase = 'closing'; sections.closing.push(line); continue; }
+        sections.request = line;
+        continue;
+      }
+      if (line.startsWith('Location:')) { sections.location = line; continue; }
+      sections.body.push(line);
+      continue;
+    }
+    if (phase === 'identity') {
+      if (line.startsWith('Yours sincerely')) { phase = 'closing'; sections.closing.push(line); continue; }
+      sections.identity.push(line);
+      continue;
+    }
+    if (phase === 'closing') {
+      if (line.startsWith('Track this complaint')) { sections.tracking = line; continue; }
+      sections.signature.push(line);
+      continue;
+    }
+  }
+  return sections;
+}
+
+function renderLetterDoc(text, tracking_id) {
+  const s = parseLetter(text);
+
+  // Unrecognised format (heavily edited letter or future letter.js changes):
+  // render the full text as-is instead of silently dropping lines.
+  if (!s.to.length && !s.subject && !s.divider && !s.tracking) {
+    return `<div class="letter-doc"><div class="ld-body">${esc(String(text || '').trim())}</div></div>`;
+  }
+
+  const toHtml = s.to.map(l => esc(l)).join('<br>');
+  const bodyText = s.body.join('\n').trim();
+  const sigHtml = s.signature.filter(l => !l.includes('Track this')).map(l => esc(l)).join('<br>');
+
+  return `
+    <div class="letter-doc">
+      ${s.to.length ? `
+        <div class="ld-block">
+          <div class="ld-label">To</div>
+          <address class="ld-to">${toHtml}</address>
+        </div>` : ''}
+
+      ${s.subject ? `
+        <div class="ld-block">
+          <div class="ld-label">Subject</div>
+          <div class="ld-subject">${esc(s.subject)}</div>
+        </div>` : ''}
+
+      ${s.salutation ? `<div class="ld-salutation">${esc(s.salutation)}</div>` : ''}
+
+      ${bodyText ? `<div class="ld-body">${esc(bodyText)}</div>` : ''}
+
+      ${s.location ? `<div class="ld-body" style="margin-top:8px">${esc(s.location)}</div>` : ''}
+
+      ${s.request ? `<p style="margin-top:16px">${esc(s.request)}</p>` : ''}
+
+      ${sigHtml || s.tracking ? `
+        <div class="ld-close">
+          <hr class="ld-divider">
+          ${s.identity.length ? `<div style="font-size:13px; color:var(--ink-muted); margin-bottom:12px">${s.identity.map(l => esc(l)).join('<br>')}</div>` : ''}
+          ${s.closing.length ? `<div>${s.closing.map(l => esc(l)).join('<br>')}</div>` : ''}
+          ${sigHtml ? `<div class="ld-sig" style="margin-top:6px">${sigHtml}</div>` : ''}
+          ${tracking_id ? `<div class="ld-ref" style="margin-top:12px">Reference: ${esc(tracking_id)}</div>` : ''}
+        </div>` : ''}
+    </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Main render
+// ---------------------------------------------------------------------------
 function render(c) {
   const noDept = !c.department;
   const blockSend = (chipsOpen && needsPick(c)) || noDept;
+  const currentLetter = letterText ?? c.draft_english ?? '';
+
   root.innerHTML = `
     <p class="progress-label">${t('step2')}</p>
 
     ${noDept ? `<div class="banner banner-error">${icon('alert')}<div>${t('no_route')}</div></div>` : ''}
     ${needsPick(c) && !noDept ? `<div class="banner banner-warn">${icon('info')}<div>${t('not_sure')}</div></div>` : ''}
 
-    <section class="card" aria-label="${t('classified_as')}">
+    <!-- ① Complaint Summary -->
+    <section class="card" aria-label="Complaint Summary" style="margin-bottom: 16px">
+      <span class="review-section-label">① Complaint Summary</span>
+
       <div class="class-strip">
         <span class="cat">${icon(CATEGORY_ICON[c.category] || 'other')}<span>${catLabel(c.category)}</span></span>
         <span class="badge badge-${c.severity}">${icon(c.severity === 'high' ? 'alert' : 'info')}${tv('severities', c.severity)}</span>
         <button type="button" class="change-link" id="changeCatBtn">${t('not_right')}</button>
       </div>
-      <p class="small muted lat" style="margin-top:12px; margin-bottom:0" lang="en">${esc(c.summary_en)}</p>
+
       ${chipsOpen ? `
-        <div class="chip-row" role="group" aria-label="${t('pick_category')}">
+        <div class="chip-row" role="group" aria-label="${t('pick_category')}" style="margin-top:12px">
           ${CATS.map((k) => `<button type="button" class="chip" data-cat="${k}" aria-pressed="${k === c.category}">${icon(CATEGORY_ICON[k])}<span>${catLabel(k)}</span></button>`).join('')}
         </div>` : ''}
+
+      <div class="review-meta-grid" style="margin-top:16px">
+        ${c.area ? `<span class="rmk">Location</span><span class="rmv">${esc(c.area)}, ${esc(c.city ? c.city.charAt(0).toUpperCase() + c.city.slice(1) : '')}</span>` : `<span class="rmk">City</span><span class="rmv">${esc(c.city ? c.city.charAt(0).toUpperCase() + c.city.slice(1) : '')}</span>`}
+        <span class="rmk">Severity</span><span class="rmv"><span class="badge badge-${c.severity}">${tv('severities', c.severity)}</span></span>
+        <span class="rmk">Reference</span><span class="rmv"><span class="mono small">${esc(c.tracking_id)}</span></span>
+      </div>
+
+      ${c.summary_en ? `
+        <div style="margin-top:16px; padding:12px 16px; background:var(--paper); border-radius:var(--r-sm); font-size:14px; color:var(--ink-muted);">
+          <strong style="font-size:11px; letter-spacing:.06em; text-transform:uppercase; display:block; margin-bottom:4px; color:var(--ink-muted);">AI Summary</strong>
+          <span class="lat" lang="en">${esc(c.summary_en)}</span>
+        </div>` : ''}
+
+      ${c.summary_ur ? `
+        <p lang="ur" style="margin-top:8px; font-size:14px; color:var(--ink-muted)">${esc(c.summary_ur)}</p>` : ''}
     </section>
 
-    <section class="card" aria-label="${t('summary_ur')}">
-      <h3>${t('summary_ur')}</h3>
-      <p lang="ur" style="margin:0">${esc(c.summary_ur)}</p>
-    </section>
+    <!-- ② Complaint Letter -->
+    <section class="letter-card" aria-label="${t('your_letter')}" style="margin-bottom: 16px">
+      <span class="review-section-label" style="display:block; margin-bottom:12px">② Complaint Letter</span>
 
-    <section class="letter-card" aria-label="${t('your_letter')}">
       <div class="letter-head">
         <div>
-          <div class="lh-title lat" lang="en">DARKHWAST</div>
-          <div class="small muted mono" style="direction:ltr; text-align:start">${esc(c.tracking_id)}</div>
+          <div class="lh-brand">DarKhwast — Citizen Complaint</div>
+          <div class="lh-ref">${esc(c.tracking_id)}</div>
         </div>
         ${sealSvg()}
       </div>
-      <div class="letter-body lat" id="letterBody" lang="en">${esc(letterText ?? c.draft_english ?? '')}</div>
+
+      <div id="letterDocView">${renderLetterDoc(currentLetter, c.tracking_id)}</div>
+
       <div class="letter-edit" id="letterEditWrap" hidden>
-        <textarea id="letterEdit" class="lat" aria-label="${t('your_letter')}"></textarea>
+        <textarea id="letterEdit" class="lat" aria-label="${t('your_letter')}" style="width:100%; min-height:420px; font-family:var(--font-letter); font-size:14px; line-height:1.75; padding:16px; border:1.5px solid var(--border-strong); border-radius:var(--r-sm); resize:vertical"></textarea>
       </div>
+
       <p class="small muted" style="margin-top:12px">${t('letter_note')}</p>
-      ${c.department ? `
-        <div class="spread" style="margin-top:8px">
-          <span class="small"><strong>${t('routed_to')}:</strong></span>
-          <span class="small lat" lang="en">${esc(c.department.name)}</span>
-        </div>
-        <div class="small muted mono" style="direction:ltr; text-align:end">${esc(c.department.email)}</div>` : ''}
-      <button type="button" class="btn btn-ghost" id="editLetterBtn" style="margin-top:8px; min-height:40px">
+
+      <button type="button" class="btn btn-ghost" id="editLetterBtn" style="margin-top:8px">
         ${letterText !== null ? t('done_edit') : t('edit_letter')}
       </button>
     </section>
 
-    <section class="card" aria-label="${t('anon_label')}">
-      <div class="switch-row">
-        <input type="checkbox" id="anonSwitch" ${c.is_anonymous !== false ? 'checked' : ''}>
-        <div>
-          <label for="anonSwitch" class="sw-label">${t('anon_label')}</label>
-          <p class="sw-help" id="anonHelp">${t('anon_help')}</p>
-        </div>
+    <!-- ③ Evidence -->
+    ${c.images && c.images.length > 0 ? `
+    <section class="card" aria-label="Evidence" style="margin-bottom: 16px">
+      <span class="review-section-label">③ Evidence</span>
+      <p class="small muted" style="margin-top:4px; margin-bottom:0">The images below will be attached as references to this complaint.</p>
+      <div class="evidence-grid">
+        ${c.images.map((src, i) => `<img src="${esc(src)}" alt="Evidence image ${i + 1}" loading="lazy">`).join('')}
       </div>
-      <div id="identityFields" hidden style="margin-top:16px">
-        <p class="helper" style="margin-top:0">${t('identify_help')}</p>
-        <div class="field"><label for="idName">${t('name_l')}</label>
-          <input id="idName" class="control" type="text" placeholder="" data-i18n-ph="name_ph">
-          <div class="field-error" id="nameErr" hidden></div></div>
-        <div class="field"><label for="idPhone">${t('phone_l')}</label>
-          <input id="idPhone" class="control" type="tel" placeholder="03xx-xxxxxxx" style="direction:ltr; text-align:start">
-          <div class="field-error" id="contactErr" hidden></div></div>
-        <div class="field"><label for="idEmail">${t('email_l')}</label>
-          <input id="idEmail" class="control" type="email" placeholder="you@example.com" style="direction:ltr; text-align:start"></div>
+    </section>` : ''}
+
+    ${c.location ? `
+    <section class="card" aria-label="GPS Location" style="margin-bottom: 16px">
+      <span class="review-section-label">GPS Location</span>
+      <p class="small mono" style="direction:ltr; text-align:start; margin:4px 0 0">${c.location.lat.toFixed(5)}, ${c.location.lng.toFixed(5)}</p>
+    </section>` : ''}
+
+    <!-- ④ Submission Information -->
+    <section class="card" aria-label="Submission Information" style="margin-bottom: 16px">
+      <span class="review-section-label">④ Submission Information</span>
+
+      ${c.department ? `
+        <div>
+          <strong style="font-size:13px; color:var(--ink-muted); text-transform:uppercase; letter-spacing:.06em">Responsible Department</strong>
+          <div class="dept-info-card">
+            <div class="di-name">${esc(c.department.name)}</div>
+            ${c.department.email ? `<div class="di-email"><a href="mailto:${esc(c.department.email)}">${esc(c.department.email)}</a></div>` : ''}
+            <div class="di-note">This complaint will be submitted to the department above on your behalf.</div>
+          </div>
+        </div>` : ''}
+
+      <!-- Anonymous toggle -->
+      <div style="margin-top:20px">
+        <strong style="font-size:13px; color:var(--ink-muted); text-transform:uppercase; letter-spacing:.06em">Privacy</strong>
+        <div class="switch-row" style="margin-top:10px">
+          <input type="checkbox" id="anonSwitch" ${anonState ? 'checked' : ''}>
+          <div>
+            <label for="anonSwitch" class="sw-label">${t('anon_label')}</label>
+            <p class="sw-help" id="anonHelp">${anonState ? t('anon_help') : t('identify_help')}</p>
+          </div>
+        </div>
+
+        <!-- Anonymous indicator -->
+        <div id="anonIndicator" style="margin-top:10px">
+          ${anonState
+            ? `<span class="anon-badge">🔒 Anonymous Complaint</span>
+               <p class="small muted" style="margin-top:8px">Your name and contact information will not be shared with the government department. Your email (if provided) is kept internally only for sending your confirmation.</p>`
+            : `<span class="anon-badge identified">👤 Identified Complaint</span>
+               <p class="small muted" style="margin-top:8px">Your name will be included in the letter sent to the department.</p>`}
+        </div>
+
+        <div id="identityFields" ${anonState ? 'hidden' : ''} style="margin-top:16px">
+          <p class="helper" style="margin-top:0">Provide your name to be included in the formal letter.</p>
+          <div class="field">
+            <label for="idName">${t('name_l')}</label>
+            <input id="idName" class="control" type="text" placeholder="" data-i18n-ph="name_ph">
+            <div class="field-error" id="nameErr" hidden></div>
+          </div>
+        </div>
       </div>
     </section>
 
-    <button type="button" class="btn btn-primary btn-block" id="sendBtn" ${blockSend ? 'disabled' : ''}>
-      ${t('send')}
-    </button>
+    <!-- ⑤ Final Action -->
+    <div class="review-actions">
+      <a href="/" class="btn btn-secondary">${icon('back')} Back</a>
+      <button type="button" class="btn btn-primary" id="sendBtn" ${blockSend ? 'disabled' : ''}>
+        ${icon('send')} ${t('send')}
+      </button>
+    </div>
   `;
+
   mountIcons(root);
   wire(c);
 }
 
+// ---------------------------------------------------------------------------
+// Wire events after render
+// ---------------------------------------------------------------------------
 function wire(c) {
-  const changeBtn = document.getElementById('changeCatBtn');
-  changeBtn?.addEventListener('click', () => { chipsOpen = !chipsOpen; render(complaint); });
+  // Category correction chips
+  document.getElementById('changeCatBtn')?.addEventListener('click', () => {
+    chipsOpen = !chipsOpen;
+    render(complaint);
+  });
 
   root.querySelectorAll('.chip[data-cat]').forEach((chip) => {
     chip.addEventListener('click', async () => {
@@ -146,52 +324,72 @@ function wire(c) {
     });
   });
 
+  // Edit letter toggle
   const editBtn = document.getElementById('editLetterBtn');
   const editWrap = document.getElementById('letterEditWrap');
-  const body = document.getElementById('letterBody');
+  const docView = document.getElementById('letterDocView');
   const editTa = document.getElementById('letterEdit');
+
   editBtn?.addEventListener('click', () => {
     if (editWrap.hidden) {
+      // Enter edit mode
       editTa.value = letterText ?? complaint.draft_english ?? '';
       editWrap.hidden = false;
-      body.hidden = true;
+      docView.hidden = true;
       editBtn.textContent = t('done_edit');
+      editTa.focus();
     } else {
+      // Save edits
       letterText = editTa.value;
       editWrap.hidden = true;
-      body.hidden = false;
-      body.textContent = letterText;
+      docView.hidden = false;
+      docView.innerHTML = renderLetterDoc(letterText, complaint.tracking_id);
       editBtn.textContent = t('edit_letter');
     }
   });
 
-  const anon = document.getElementById('anonSwitch');
-  const fields = document.getElementById('identityFields');
-  anon?.addEventListener('change', () => {
-    fields.hidden = anon.checked;
-    document.getElementById('anonHelp').textContent = anon.checked ? t('anon_help') : t('identify_help');
+  // Anonymous toggle
+  const anonSwitch = document.getElementById('anonSwitch');
+  const identityFields = document.getElementById('identityFields');
+  const anonIndicator = document.getElementById('anonIndicator');
+
+  anonSwitch?.addEventListener('change', () => {
+    anonState = anonSwitch.checked;
+    identityFields.hidden = anonState;
+    document.getElementById('anonHelp').textContent = anonState ? t('anon_help') : t('identify_help');
+    // Update indicator
+    if (anonIndicator) {
+      anonIndicator.innerHTML = anonState
+        ? `<span class="anon-badge">🔒 Anonymous Complaint</span>
+           <p class="small muted" style="margin-top:8px">Your name and contact information will not be shared with the government department. Your email (if provided) is kept internally only for sending your confirmation.</p>`
+        : `<span class="anon-badge identified">👤 Identified Complaint</span>
+           <p class="small muted" style="margin-top:8px">Your name will be included in the letter sent to the department.</p>`;
+    }
   });
 
+  // Send button
   document.getElementById('sendBtn')?.addEventListener('click', onSend);
 }
 
+// ---------------------------------------------------------------------------
+// Send flow
+// ---------------------------------------------------------------------------
 async function onSend() {
   if (sending) return;
   const anon = document.getElementById('anonSwitch');
-  const payload = { anonymous: anon.checked, name: '', phone: '', email: '', letter_text: letterText || undefined };
+  const payload = { anonymous: anon.checked, name: '', letter_text: letterText || undefined };
 
   if (!anon.checked) {
     const name = document.getElementById('idName').value.trim();
-    const phone = document.getElementById('idPhone').value.trim();
-    const email = document.getElementById('idEmail').value.trim();
     const nameErr = document.getElementById('nameErr');
-    const contactErr = document.getElementById('contactErr');
-    nameErr.hidden = true; contactErr.hidden = true;
-    let bad = false;
-    if (name.length < 2) { nameErr.textContent = t('name_l'); nameErr.hidden = false; bad = true; }
-    if (!isPhoneLike(phone) && !isEmailLike(email)) { contactErr.textContent = t('identify_help'); contactErr.hidden = false; bad = true; }
-    if (bad) return;
-    payload.name = name; payload.phone = phone; payload.email = email;
+    nameErr.hidden = true;
+    if (name.length < 2) {
+      nameErr.textContent = 'Please enter your full name.';
+      nameErr.hidden = false;
+      document.getElementById('idName').focus();
+      return;
+    }
+    payload.name = name;
   }
 
   openConfirm(payload);
@@ -206,19 +404,21 @@ function openConfirm(payload) {
       <button type="button" class="modal-x" aria-label="${t('cancel')}">${icon('x')}</button>
       <h2 id="mTitle">${t('confirm_t')}</h2>
       <p>${t('confirm_b')}</p>
-      <div class="card" style="padding:12px 16px">
-        <div class="small"><strong>${t('routed_to')}:</strong></div>
-        <div class="lat" lang="en" style="font-weight:600">${esc(dept.name)}</div>
-        <div class="small muted mono" style="direction:ltr; text-align:start">${esc(dept.email)}</div>
+      <div class="dept-info-card" style="margin:0">
+        <div class="di-name">${esc(dept.name)}</div>
+        ${dept.email ? `<div class="di-email">${esc(dept.email)}</div>` : ''}
       </div>
-      ${payload.anonymous ? `<p class="small" style="margin-top:12px">${t('confirm_anon')}</p>` : ''}
+      ${payload.anonymous
+        ? `<div style="margin-top:14px"><span class="anon-badge">🔒 Anonymous</span> <span class="small muted">No contact details will be attached.</span></div>`
+        : `<div style="margin-top:14px"><span class="anon-badge identified">👤 ${esc(payload.name)}</span> <span class="small muted">Your name will appear in the letter.</span></div>`}
       <div class="actions">
         <button type="button" class="btn btn-secondary" id="mCancel">${t('cancel')}</button>
-        <button type="button" class="btn btn-primary" id="mOk">${t('confirm_send')}</button>
+        <button type="button" class="btn btn-primary" id="mOk">${icon('send')} ${t('confirm_send')}</button>
       </div>
     </div>`;
   document.body.appendChild(backdrop);
   mountIcons(backdrop);
+
   const okBtn = backdrop.querySelector('#mOk');
   okBtn.focus();
 

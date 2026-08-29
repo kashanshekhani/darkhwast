@@ -2,13 +2,10 @@
 // filters, "needs attention" preset, dense table with department column.
 
 import { api, esc, icon, CATEGORY_ICON, mountIcons, requireOfficial, timeAgo, toast } from './shared.js';
+import { CITIES, CATS, CAT_LABEL, CITY_LABEL } from './constants.js';
 
 const OPEN = ['sent', 'acknowledged', 'in_progress', 'send_failed', 'needs_review'];
 const ATTENTION = ['needs_review', 'send_failed'];
-const CATS = ['garbage', 'streetlight', 'water', 'sewage', 'road', 'other'];
-const CITIES = ['karachi', 'lahore', 'islamabad', 'faisalabad'];
-const CAT_LABEL = { garbage: 'Garbage', streetlight: 'Streetlight', water: 'Water', sewage: 'Sewage', road: 'Road', other: 'Other' };
-const CITY_LABEL = { karachi: 'Karachi', lahore: 'Lahore', islamabad: 'Islamabad', faisalabad: 'Faisalabad' };
 const NAV_STATUSES = ['sent', 'acknowledged', 'in_progress', 'resolved'];
 
 if (!requireOfficial()) throw new Error('redirecting to login');
@@ -78,7 +75,7 @@ function renderStats() {
   const attentionCount = complaints.filter((c) => ATTENTION.includes(c.status)).length;
   const resolved = complaints.filter((c) => c.status === 'resolved').length;
   const byCat = CATS.map((k) => ({ k, n: open.filter((c) => c.category === k).length })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 4);
-  const byCity = CITIES.map((k) => ({ k, n: open.filter((c) => c.city === k).length })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 4);
+  const byCity = CITIES.map((c) => ({ k: c.id, n: open.filter((x) => x.city === c.id).length })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 4);
   const maxCat = Math.max(1, ...byCat.map((x) => x.n));
   const maxCity = Math.max(1, ...byCity.map((x) => x.n));
 

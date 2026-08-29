@@ -2,6 +2,7 @@
 // offline banner, copy-with-announcement, date formatting, dashboard auth.
 
 import { t, lang, setLang } from './i18n.js';
+import { CITIES } from './constants.js';
 
 // language toggle (citizen pages); pages can register a re-render for
 // dynamically built content
@@ -115,12 +116,6 @@ export function timeAgo(iso) {
 // searchable city select (keyboard navigable per DESIGN.md)
 // ---------------------------------------------------------------------------
 export function citySelect(container, { onChange } = {}) {
-  const CITIES = [
-    { id: 'karachi', en: 'Karachi', ur: 'کراچی' },
-    { id: 'lahore', en: 'Lahore', ur: 'لاہور' },
-    { id: 'islamabad', en: 'Islamabad', ur: 'اسلام آباد' },
-    { id: 'faisalabad', en: 'Faisalabad', ur: 'فیصل آباد' },
-  ];
   const state = { value: null, other: false };
   container.classList.add('select-search');
   container.innerHTML = `

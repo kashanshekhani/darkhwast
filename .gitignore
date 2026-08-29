@@ -6,3 +6,6 @@ data/
 
 # local secrets / environment
 .env
+
+# stray local files in the repo root (served copies live in public/assets)
+/assets/

@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>DarKhwast - Describe the problem</title>
+  <title>DarKhwast - File a Complaint</title>
+  <meta name="description" content="Submit a civic complaint to your local government department. Write or speak in Urdu or English.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%230E6B5C'/><text x='16' y='21' font-size='13' font-family='monospace' text-anchor='middle' fill='white'>DK</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,52 +21,191 @@
     </div>
   </header>
 
-  <main id="main" class="shell">
-    <div id="errorSummary" class="error-summary" role="alert" hidden>
-      <h2 data-i18n="err_title">Please fix the following:</h2>
-      <ul id="errorList"></ul>
+  <main id="main" class="file-page">
+    <!-- Back to Home -->
+    <div class="file-page-header">
+      <a href="/" class="back-home-btn" id="backHome">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="flip-rtl"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+        <span data-i18n="back_home">Back to Home</span>
+      </a>
+
+      <div class="file-page-title">
+        <h1 data-i18n="file_heading">File a Complaint</h1>
+        <p class="file-page-subtitle" data-i18n="file_subtitle">Describe your civic issue in your own words. You can write or speak in Urdu or English.</p>
+      </div>
     </div>
 
-    <section id="fileSection">
-      <p class="progress-label" data-i18n="step1">Step 1 of 2</p>
-      <h1 data-i18n="q_title">What's the problem?</h1>
+    <!-- Error summary -->
+    <div class="file-card-wrap">
+      <div id="errorSummary" class="error-summary" role="alert" hidden>
+        <h2 data-i18n="err_title">Please fix the following:</h2>
+        <ul id="errorList"></ul>
+      </div>
 
-      <form id="fileForm" novalidate>
-        <div class="field">
-          <label for="rawText" data-i18n="q_helper">Write in Urdu or English, however is easy.</label>
-          <textarea id="rawText" class="control" name="raw_text" placeholder="" data-i18n-ph="q_ph"
-            aria-describedby="rawHelper rawCount"></textarea>
-          <p class="helper" id="rawHelper" data-i18n="q_helper"></p>
-          <div class="char-count" id="rawCount" aria-live="polite"></div>
-          <div class="field-error" id="rawError" hidden></div>
-        </div>
+      <section id="fileSection">
+        <form id="fileForm" class="file-card" novalidate>
 
-        <div class="field">
-          <label for="cityBox" data-i18n="city_label">City</label>
-          <div id="cityBox"></div>
-          <div class="field-error" id="cityError" hidden></div>
-        </div>
-        <div class="banner banner-warn small" id="unsupportedNote" hidden>
-          <span data-icon="info"></span><div data-i18n="unsupported_note"></div>
-        </div>
+          <!-- ═══════ SECTION: Complaint ═══════ -->
+          <div class="form-section" id="sectionComplaint">
+            <div class="form-section-header">
+              <h2 class="form-section-title" data-i18n="q_title">What's the problem?</h2>
+              <p class="form-section-desc" data-i18n="q_helper">Write in Urdu or English, however is easy.</p>
+            </div>
 
-        <div class="field">
-          <label for="areaInput" data-i18n="area_label">Area</label>
-          <input id="areaInput" class="control" type="text" name="area" data-i18n-ph="area_ph" aria-describedby="areaHelper">
-          <p class="helper" id="areaHelper" data-i18n="area_helper"></p>
-        </div>
+            <!-- Textarea with mic -->
+            <div class="field">
+              <label for="rawText" class="sr-only" data-i18n="q_title">What's the problem?</label>
+              <div class="text-with-mic">
+                <textarea id="rawText" class="control" name="raw_text" placeholder="" data-i18n-ph="q_ph"
+                  aria-describedby="rawHelper rawCount"></textarea>
+                <div class="mic-btn-wrap" id="micBtnWrap" hidden>
+                  <button type="button" id="micBtn" class="mic-btn" aria-label="Use voice input" title="Describe by voice">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                  </button>
+                  <span class="mic-label" id="micLabel" data-i18n="mic_label">🎙 Describe by voice</span>
+                </div>
+              </div>
+              <div class="field-meta-row">
+                <p class="helper" id="rawHelper" data-i18n="q_helper"></p>
+                <div class="char-count" id="rawCount" aria-live="polite"></div>
+              </div>
+              <div class="field-error" id="rawError" hidden></div>
+            </div>
 
-        <button type="submit" id="submitBtn" class="btn btn-primary btn-block" disabled>
-          <span data-i18n="submit">Draft my complaint</span>
-        </button>
-        <p class="helper" id="submitHint" data-i18n="submit_disabled" style="text-align:center; margin-top:8px"></p>
-      </form>
-    </section>
+            <!-- Image upload -->
+            <div class="field" id="fieldPhotos">
+              <div class="upload-header">
+                <label class="upload-label">Add Photos</label>
+                <span class="upload-optional">Optional</span>
+              </div>
+              <p class="helper" style="margin-top:0">Photos can help the department understand the issue.</p>
+              <label class="upload-dropzone" for="imageInput" id="dropzone" tabindex="0">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="upload-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span class="upload-text">Upload photos of the issue</span>
+                <span class="upload-hint">JPG, PNG • Up to 5 images</span>
+                <input type="file" id="imageInput" accept="image/jpeg, image/png" multiple class="sr-only">
+              </label>
+              <div id="imagePreviewContainer" class="image-preview-grid"></div>
+              <div class="field-error" id="imageError" hidden></div>
+            </div>
+          </div>
 
-    <section id="progressPanel" class="progress-panel" hidden aria-live="polite">
-      <div class="progress-dots" aria-hidden="true"><span></span><span></span><span></span></div>
-      <p class="progress-msg" id="progressMsg"></p>
-    </section>
+          <!-- ═══════ SECTION: Location ═══════ -->
+          <div class="form-section-divider"></div>
+          <div class="form-section" id="sectionLocation">
+            <div class="form-section-header">
+              <h2 class="form-section-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                <span data-i18n="location_section_title">Where is the issue?</span>
+              </h2>
+            </div>
+
+            <div class="field">
+              <label for="cityBox" data-i18n="city_label">City</label>
+              <div id="cityBox"></div>
+              <div class="field-error" id="cityError" hidden></div>
+            </div>
+            <div class="banner banner-warn small" id="unsupportedNote" hidden>
+              <span data-icon="info"></span><div data-i18n="unsupported_note"></div>
+            </div>
+
+            <div class="field">
+              <label for="areaInput" data-i18n="area_label">Area / neighbourhood</label>
+              <input id="areaInput" class="control" type="text" name="area" data-i18n-ph="area_ph" aria-describedby="areaHelper">
+              <p class="helper" id="areaHelper" data-i18n="area_helper"></p>
+            </div>
+
+            <div class="field">
+              <label class="field-label-row">
+                <span>Location</span>
+                <span class="upload-optional">Optional</span>
+              </label>
+              <div class="gps-row">
+                <button type="button" id="gpsBtn" class="btn btn-secondary gps-btn">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>
+                  <span data-i18n="gps_use">Use My Location</span>
+                </button>
+                <input id="locationInput" class="control gps-input" type="text" readonly placeholder="No location selected">
+              </div>
+              <div class="gps-result" id="gpsResult" hidden>
+                <span class="gps-result-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                </span>
+                <div class="gps-result-body">
+                  <p class="gps-place-label" data-i18n="gps_place_label">Detected Location</p>
+                  <p class="gps-place-name" id="gpsPlaceName"></p>
+                  <p class="gps-place-coords" id="gpsCoords"></p>
+                </div>
+              </div>
+              <p class="helper" id="gpsStatus"></p>
+            </div>
+          </div>
+
+          <!-- ═══════ SECTION: Contact ═══════ -->
+          <div class="form-section-divider"></div>
+          <div class="form-section" id="sectionContact">
+            <div class="form-section-header">
+              <h2 class="form-section-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                <span>Contact Information</span>
+              </h2>
+              <p class="form-section-desc">We'll use this to send you your complaint reference and updates.</p>
+            </div>
+
+            <div class="field">
+              <label for="idEmail">
+                <span>Email Address</span>
+                <span class="upload-optional">Optional</span>
+              </label>
+              <input id="idEmail" class="control" type="email" placeholder="you@example.com" autocomplete="email" style="direction:ltr; text-align:start">
+              <div class="field-error" id="emailError" hidden></div>
+            </div>
+
+            <div class="field">
+              <label for="idPhone">
+                <span>Phone Number</span>
+                <span class="upload-optional">Optional</span>
+              </label>
+              <input id="idPhone" class="control" type="tel" placeholder="03xx-xxxxxxx" autocomplete="tel" style="direction:ltr; text-align:start">
+              <div class="field-error" id="phoneError" hidden></div>
+            </div>
+
+            <!-- Anonymous toggle -->
+            <div class="anon-toggle-wrap">
+              <div class="anon-toggle-row">
+                <label class="toggle-switch" for="anonCheck">
+                  <input type="checkbox" id="anonCheck" checked>
+                  <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                </label>
+                <div class="anon-toggle-text">
+                  <span class="anon-toggle-label">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    Submit anonymously
+                  </span>
+                  <span class="anon-toggle-help">Your name and contact information will not be shared with the responsible department.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══════ Submit ═══════ -->
+          <div class="form-section form-submit-section">
+            <button type="submit" id="submitBtn" class="btn btn-primary file-submit-btn" disabled>
+              <span data-i18n="submit">Draft my complaint</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="flip-rtl"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </button>
+            <p class="helper file-submit-hint" id="submitHint" data-i18n="submit_disabled"></p>
+          </div>
+
+        </form>
+      </section>
+
+      <!-- Progress panel -->
+      <section id="progressPanel" class="progress-panel" hidden aria-live="polite">
+        <div class="progress-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+        <p class="progress-msg" id="progressMsg"></p>
+      </section>
+    </div>
   </main>
 
   <script type="module" src="/js/file.js"></script>

@@ -2,6 +2,7 @@
 // status control with note, full history.
 
 import { api, esc, fmtDateTime, icon, CATEGORY_ICON, mountIcons, requireOfficial, sealSvg, toast, qs } from './shared.js';
+import { CAT_LABEL, CITY_LABEL } from './constants.js';
 
 if (!requireOfficial()) throw new Error('redirecting to login');
 
@@ -17,8 +18,6 @@ document.querySelectorAll('.js-logout').forEach((btn) =>
 
 const root = document.getElementById('detailRoot');
 let complaint = null;
-const CAT_LABEL = { garbage: 'Garbage & waste', streetlight: 'Streetlight', water: 'Water supply', sewage: 'Sewage & drainage', road: 'Road damage', other: 'Other' };
-const CITY_LABEL = { karachi: 'Karachi', lahore: 'Lahore', islamabad: 'Islamabad', faisalabad: 'Faisalabad' };
 
 async function load() {
   const id = qs('id');
