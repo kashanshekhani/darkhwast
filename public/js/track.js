@@ -61,7 +61,7 @@ function render(c) {
     <p class="progress-label">${t('track_title')}</p>
     <div class="spread" style="margin-bottom:16px">
       <h1 class="mono" style="font-size:20px; margin:0; direction:ltr" lang="en">${esc(c.tracking_id)}</h1>
-      <span class="status-chip st-${esc(c.status)}">${tv('statuses', c.status)}</span>
+      <span class="status-chip ${esc(c.status)}"><span class="dot"></span>${tv('statuses', c.status)}</span>
     </div>
 
     ${failed ? `<div class="banner banner-warn">${icon('alert')}<div>${t('pending')}</div></div>` : ''}

@@ -7,24 +7,32 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%230E6B5C'/><text x='16' y='21' font-size='13' font-family='monospace' text-anchor='middle' fill='white'>DK</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Public+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Public+Sans:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css?v=2">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
 
+  <div class="dash-side-backdrop" id="sideBackdrop"></div>
   <div class="dash-layout">
-    <aside class="dash-side">
-      <a class="side-brand" href="/dashboard.html"><span class="dk-mark">DK</span> DarKhwast</a>
-      <div class="side-label">Complaints</div>
-      <nav class="side-nav" aria-label="Complaint filters" id="sideNav">
-        <button type="button" class="side-link active" data-nav="all">All complaints <span class="side-count" id="cnt-all"></span></button>
-        <button type="button" class="side-link" data-nav="attention">Needs attention <span class="side-count" id="cnt-attention"></span></button>
-        <button type="button" class="side-link" data-nav="sent">Sent</button>
-        <button type="button" class="side-link" data-nav="acknowledged">Acknowledged</button>
-        <button type="button" class="side-link" data-nav="in_progress">In progress</button>
-        <button type="button" class="side-link" data-nav="resolved">Resolved</button>
-      </nav>
+    <aside class="dash-side" id="dashSide">
+      <a class="side-brand" href="/dashboard.html"><span class="dk-mark">DK</span> DarKhwast <span class="side-brand-tag">· Dashboard</span></a>
+      <div class="side-scroll">
+        <div class="side-label">Complaints</div>
+        <nav class="side-nav" aria-label="Complaint filters" id="sideNav">
+          <button type="button" class="side-link active" data-nav="all" role="tab" aria-selected="true">All complaints <span class="side-count" id="cnt-all"></span></button>
+          <button type="button" class="side-link" data-nav="attention" role="tab" aria-selected="false">Needs attention <span class="side-count" id="cnt-attention"></span></button>
+          <div class="side-label" style="margin-top:10px">By status</div>
+          <button type="button" class="side-link" data-nav="draft" role="tab" aria-selected="false">Draft <span class="side-count" id="cnt-draft"></span></button>
+          <button type="button" class="side-link" data-nav="needs_review" role="tab" aria-selected="false">Needs review <span class="side-count" id="cnt-needs_review"></span></button>
+          <button type="button" class="side-link" data-nav="sent" role="tab" aria-selected="false">Sent <span class="side-count" id="cnt-sent"></span></button>
+          <button type="button" class="side-link" data-nav="send_failed" role="tab" aria-selected="false">Send failed <span class="side-count" id="cnt-send_failed"></span></button>
+          <button type="button" class="side-link" data-nav="acknowledged" role="tab" aria-selected="false">Acknowledged <span class="side-count" id="cnt-acknowledged"></span></button>
+          <button type="button" class="side-link" data-nav="in_progress" role="tab" aria-selected="false">In progress <span class="side-count" id="cnt-in_progress"></span></button>
+          <button type="button" class="side-link" data-nav="resolved" role="tab" aria-selected="false">Resolved <span class="side-count" id="cnt-resolved"></span></button>
+          <button type="button" class="side-link" data-nav="rejected" role="tab" aria-selected="false">Rejected <span class="side-count" id="cnt-rejected"></span></button>
+        </nav>
+      </div>
       <div class="side-foot">
         <p class="side-note" id="sideNote"></p>
         <button type="button" class="btn js-logout">Sign out</button>
@@ -34,7 +42,10 @@
     <div class="dash-main">
       <header class="dash-head">
         <div class="dash-head-inner">
-          <a class="wordmark" href="/dashboard.html"><span class="dk-mark">DK</span> DarKhwast <span style="font-weight:400; opacity:.8; font-size:13px">Dashboard</span></a>
+          <div style="display:flex; align-items:center; gap:10px">
+            <button type="button" class="menu-btn" id="menuBtn" aria-label="Open menu" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+            <a class="wordmark" href="/dashboard.html"><span class="dk-mark">DK</span> DarKhwast <span style="font-weight:400; opacity:.8; font-size:13px">Dashboard</span></a>
+          </div>
           <div style="display:flex; align-items:center; gap:12px">
             <span class="who js-who"></span>
             <button type="button" class="btn js-logout">Sign out</button>
@@ -43,6 +54,19 @@
       </header>
 
       <main id="main" class="dash-content">
+        <div class="dash-hero">
+          <div class="dash-hero-row">
+            <div>
+              <h1 class="dash-hero-greeting">Complaint <span class="hl">Dashboard</span></h1>
+              <div class="dash-hero-meta" id="dashMeta"></div>
+            </div>
+            <div class="dash-hero-actions">
+              <button type="button" class="export-btn" id="exportBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
+            </div>
+          </div>
+        </div>
+        <div class="dash-offline-banner" id="offlineBanner"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4"/><path d="M12 17.5h.01"/></svg>Connection lost, showing last loaded complaints.</div>
+        <div class="dash-error-banner" id="errorBanner" hidden><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4"/><path d="M12 17.5h.01"/></svg><span id="errorMsg">Failed to load complaints.</span><button type="button" class="btn btn-secondary retry-btn" id="retryBtn">Retry</button></div>
         <div class="banner banner-info" id="mailBanner" hidden></div>
         <div id="statsRoot">
           <div class="stat-grid">
@@ -51,61 +75,72 @@
           </div>
         </div>
 
-        <div class="filter-bar" id="filterBar">
-          <input type="search" class="control search" id="fSearch" placeholder="Search ID, area, text, department..." aria-label="Search complaints">
-          <select class="control" id="fCity" aria-label="Filter by city">
-            <option value="">All cities</option>
-            <option value="karachi">Karachi</option>
-            <option value="lahore">Lahore</option>
-            <option value="islamabad">Islamabad</option>
-            <option value="faisalabad">Faisalabad</option>
-          </select>
-          <select class="control" id="fCat" aria-label="Filter by category">
-            <option value="">All categories</option>
-            <option value="garbage">Garbage & waste</option>
-            <option value="streetlight">Streetlight</option>
-            <option value="water">Water supply</option>
-            <option value="sewage">Sewage</option>
-            <option value="road">Road damage</option>
-            <option value="other">Other</option>
-          </select>
-          <select class="control" id="fSev" aria-label="Filter by severity">
-            <option value="">All severity</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-          </select>
-          <select class="control" id="fStatus" aria-label="Filter by status">
-            <option value="">All statuses</option>
-            <option value="draft">Draft</option>
-            <option value="needs_review">Needs review</option>
-            <option value="sent">Sent</option>
-            <option value="send_failed">Send failed</option>
-            <option value="acknowledged">Acknowledged</option>
-            <option value="in_progress">In progress</option>
-            <option value="resolved">Resolved</option>
-            <option value="rejected">Rejected</option>
-          </select>
-          <button type="button" class="preset-chip" id="attentionChip" aria-pressed="false">Needs attention</button>
+        <div class="dash-panel">
+          <div class="panel-head">
+            <h2 class="panel-title">Complaint queue</h2>
+          </div>
+          <div class="panel-body">
+            <button type="button" class="filter-toggle" id="filterToggle" aria-expanded="false">Filters<span class="filter-count" id="filterCount" hidden>0</span></button>
+            <div class="filter-bar" id="filterBar">
+              <input type="search" class="control search" id="fSearch" placeholder="Search ID, area, text, department..." aria-label="Search complaints">
+              <select class="control" id="fCity" aria-label="Filter by city">
+                <option value="">All cities</option>
+                <option value="karachi">Karachi</option>
+                <option value="lahore">Lahore</option>
+                <option value="islamabad">Islamabad</option>
+                <option value="faisalabad">Faisalabad</option>
+              </select>
+              <select class="control" id="fCat" aria-label="Filter by category">
+                <option value="">All categories</option>
+                <option value="garbage">Garbage & waste</option>
+                <option value="streetlight">Streetlight</option>
+                <option value="water">Water supply</option>
+                <option value="sewage">Sewage</option>
+                <option value="road">Road damage</option>
+                <option value="other">Other</option>
+              </select>
+              <select class="control" id="fSev" aria-label="Filter by severity">
+                <option value="">All severity</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+              <select class="control" id="fStatus" aria-label="Filter by status">
+                <option value="">All statuses</option>
+                <option value="draft">Draft</option>
+                <option value="needs_review">Needs review</option>
+                <option value="sent">Sent</option>
+                <option value="send_failed">Send failed</option>
+                <option value="acknowledged">Acknowledged</option>
+                <option value="in_progress">In progress</option>
+                <option value="resolved">Resolved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+              <button type="button" class="preset-chip" id="attentionChip" aria-pressed="false">Needs attention</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="queue">
+              <thead>
+                <tr>
+                  <th scope="col">ID</th><th scope="col">Category</th><th scope="col">Location</th>
+                  <th scope="col">Department</th><th scope="col">Severity</th><th scope="col">Status</th>
+                  <th scope="col">Age</th><th scope="col"><span class="visually-hidden">Open</span></th>
+                </tr>
+              </thead>
+              <tbody id="tbody"></tbody>
+            </table>
+          </div>
         </div>
-
-        <div class="table-wrap">
-          <table class="queue">
-            <thead>
-              <tr>
-                <th scope="col">ID</th><th scope="col">Category</th><th scope="col">Location</th>
-                <th scope="col">Department</th><th scope="col">Severity</th><th scope="col">Status</th>
-                <th scope="col">Age</th><th scope="col"><span class="visually-hidden">Open</span></th>
-              </tr>
-            </thead>
-            <tbody id="tbody"></tbody>
-          </table>
+        <div class="load-more-wrap" id="loadMoreWrap" hidden>
+          <button type="button" class="load-more-btn" id="loadMoreBtn">Load more</button>
+          <div class="row-count" id="rowCount"></div>
         </div>
         <div class="empty-state" id="emptyState" hidden></div>
       </main>
     </div>
   </div>
 
-  <script type="module" src="/js/dashboard.js"></script>
+  <script type="module" src="/js/dashboard.js?v=2"></script>
 </body>
 </html>

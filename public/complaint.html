@@ -7,24 +7,27 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%230E6B5C'/><text x='16' y='21' font-size='13' font-family='monospace' text-anchor='middle' fill='white'>DK</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Public+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Public+Sans:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
 
+  <div class="dash-side-backdrop" id="sideBackdrop"></div>
   <div class="dash-layout">
-    <aside class="dash-side">
-      <a class="side-brand" href="/dashboard.html"><span class="dk-mark">DK</span> DarKhwast</a>
-      <div class="side-label">Complaints</div>
-      <nav class="side-nav" aria-label="Complaint filters">
-        <a class="side-link" href="/dashboard.html">All complaints</a>
-        <a class="side-link" href="/dashboard.html?attention=1">Needs attention</a>
-        <a class="side-link" href="/dashboard.html?status=sent">Sent</a>
-        <a class="side-link" href="/dashboard.html?status=acknowledged">Acknowledged</a>
-        <a class="side-link" href="/dashboard.html?status=in_progress">In progress</a>
-        <a class="side-link" href="/dashboard.html?status=resolved">Resolved</a>
-      </nav>
+    <aside class="dash-side" id="dashSide">
+      <a class="side-brand" href="/dashboard.html"><span class="dk-mark">DK</span> DarKhwast <span class="side-brand-tag">· Dashboard</span></a>
+      <div class="side-scroll">
+        <div class="side-label">Complaints</div>
+        <nav class="side-nav" aria-label="Complaint filters">
+          <a class="side-link" href="/dashboard.html">All complaints</a>
+          <a class="side-link" href="/dashboard.html?attention=1">Needs attention</a>
+          <a class="side-link" href="/dashboard.html?status=sent">Sent</a>
+          <a class="side-link" href="/dashboard.html?status=acknowledged">Acknowledged</a>
+          <a class="side-link" href="/dashboard.html?status=in_progress">In progress</a>
+          <a class="side-link" href="/dashboard.html?status=resolved">Resolved</a>
+        </nav>
+      </div>
       <div class="side-foot">
         <p class="side-note" id="sideNote"></p>
         <button type="button" class="btn js-logout">Sign out</button>
@@ -34,7 +37,10 @@
     <div class="dash-main">
       <header class="dash-head">
         <div class="dash-head-inner">
-          <a class="wordmark" href="/dashboard.html"><span class="dk-mark">DK</span> DarKhwast <span style="font-weight:400; opacity:.8; font-size:13px">Dashboard</span></a>
+          <div style="display:flex; align-items:center; gap:10px">
+            <button type="button" class="menu-btn" id="menuBtn" aria-label="Open menu" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+            <a class="wordmark" href="/dashboard.html"><span class="dk-mark">DK</span> DarKhwast <span style="font-weight:400; opacity:.8; font-size:13px">Dashboard</span></a>
+          </div>
           <div style="display:flex; align-items:center; gap:12px">
             <span class="who js-who"></span>
             <button type="button" class="btn js-logout">Sign out</button>

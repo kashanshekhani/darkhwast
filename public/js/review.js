@@ -168,7 +168,7 @@ function render(c) {
 
       <div class="class-strip">
         <span class="cat">${icon(CATEGORY_ICON[c.category] || 'other')}<span>${catLabel(c.category)}</span></span>
-        <span class="badge badge-${c.severity}">${icon(c.severity === 'high' ? 'alert' : 'info')}${tv('severities', c.severity)}</span>
+        <span class="sev-dot ${c.severity}"><span class="dot"></span>${tv('severities', c.severity)}</span>
         <button type="button" class="change-link" id="changeCatBtn">${t('not_right')}</button>
       </div>
 
@@ -179,7 +179,7 @@ function render(c) {
 
       <div class="review-meta-grid" style="margin-top:16px">
         ${c.area ? `<span class="rmk">Location</span><span class="rmv">${esc(c.area)}, ${esc(c.city ? c.city.charAt(0).toUpperCase() + c.city.slice(1) : '')}</span>` : `<span class="rmk">City</span><span class="rmv">${esc(c.city ? c.city.charAt(0).toUpperCase() + c.city.slice(1) : '')}</span>`}
-        <span class="rmk">Severity</span><span class="rmv"><span class="badge badge-${c.severity}">${tv('severities', c.severity)}</span></span>
+        <span class="rmk">Severity</span><span class="rmv"><span class="sev-dot ${c.severity}"><span class="dot"></span>${tv('severities', c.severity)}</span></span>
         <span class="rmk">Reference</span><span class="rmv"><span class="mono small">${esc(c.tracking_id)}</span></span>
       </div>
 

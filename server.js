@@ -91,10 +91,11 @@ function publicView(c) {
 
 // public tracking view: zero PII, status trail only (FR-6)
 function trackView(c) {
+  const dept = deptOf(c);
   return {
     tracking_id: c.tracking_id, category: c.category, severity: c.severity,
     summary_en: c.summary_en, summary_ur: c.summary_ur, city: c.city, area: c.area,
-    status: c.status, department: deptOf(c) ? { name: deptOf(c).name } : null,
+    status: c.status, department: dept ? { name: dept.name } : null,
     created_at: c.created_at, sent_at: c.sent_at, resolved_at: c.resolved_at,
     events: eventsOf(c.id).map((e) => ({ from_status: e.from_status, to_status: e.to_status, actor: e.actor, note: e.note, at: e.created_at })),
   };
@@ -107,6 +108,7 @@ function officialView(c) {
     citizen_name: c.citizen_name, citizen_phone: c.citizen_phone, citizen_email: c.citizen_email,
     classification_raw: c.classification_raw,
     dispatch_log: c.dispatch_log || [],
+    department: c.department_id ? deptOf(c) : null,
   };
 }
 
@@ -245,12 +247,12 @@ app.patch('/api/complaints/:id/category', (req, res) => {
 // citizen: send (FR-5)
 app.post('/api/complaints/:id/send', async (req, res) => {
   try {
+    if (!sendRL.check(ipOf(req))) return res.status(429).json({ error: 'Too many send attempts. Please try again later.' });
     const c = findByRecordId(req.params.id);
     if (!c) return res.status(404).json({ error: 'Complaint not found.' });
     if (!['draft', 'needs_review', 'send_failed'].includes(c.status)) return res.status(409).json({ error: 'This complaint has already been sent.' });
     const dept = deptOf(c);
     if (!dept) return res.status(409).json({ error: 'No department could be routed for this complaint yet.' });
-    if (!sendRL.check(ipOf(req))) return res.status(429).json({ error: 'Too many send attempts. Please try again later.' });
 
     const { anonymous = true, name = '', letter_text = '' } = req.body || {};
     const identity = { anonymous: Boolean(anonymous), name: String(name || '').trim(), phone: c.citizen_phone, email: c.citizen_email };
@@ -368,12 +370,50 @@ app.patch('/api/official/complaints/:id/status', auth, (req, res) => {
   if (!['sent', 'acknowledged', 'in_progress', 'send_failed'].includes(c.status)) {
     return res.status(409).json({ error: `Cannot move a complaint in status "${c.status}".` });
   }
+  if (to_status === c.status) return res.status(409).json({ error: `Complaint is already in status "${to_status}".` });
   const prev = c.status;
   c.status = to_status;
   if (to_status === 'resolved') c.resolved_at = nowIso();
   addEvent(c.id, prev, to_status, 'official', note || `${req.official.name} set status to ${to_status}`);
   saveDb();
   res.json({ complaint: { ...officialView(c), events: eventsOf(c.id) } });
+});
+
+// official: re-send a send_failed complaint (FR-5, Flow F)
+app.post('/api/official/complaints/:id/resend', auth, async (req, res) => {
+  try {
+    if (req.official.role === 'viewer') return res.status(403).json({ error: 'Viewer accounts cannot re-send. Sign in as an operator.' });
+    const c = findComplaint(req.params.id);
+    if (!c) return res.status(404).json({ error: 'Complaint not found.' });
+    if (c.status !== 'send_failed') return res.status(409).json({ error: 'Only failed dispatches can be re-sent.' });
+    const dept = deptOf(c);
+    if (!dept) return res.status(409).json({ error: 'No department routed for this complaint.' });
+
+    const letter = c.letter_final || c.draft_english || '';
+    const subject = buildSubject(c);
+    let dispatch = { ok: false, simulated: mailMode() !== 'smtp', message_id: null, error: 'not attempted' };
+    for (let attempt = 1; attempt <= 2 && !dispatch.ok; attempt++) {
+      try {
+        dispatch = await dispatchComplaintEmail({ to: dept.email, subject, text: letter });
+      } catch (e) {
+        console.error(`[mail] re-send attempt ${attempt} failed:`, e.message);
+        dispatch = { ok: false, simulated: mailMode() !== 'smtp', message_id: null, error: e.message };
+      }
+    }
+
+    const prevStatus = c.status;
+    c.dispatch_log = [...(c.dispatch_log || []), { at: nowIso(), to: dept.email, subject, simulated: dispatch.simulated, message_id: dispatch.message_id, ok: dispatch.ok }];
+    if (dispatch.ok) {
+      c.status = 'sent';
+      c.sent_at = nowIso();
+    }
+    addEvent(c.id, prevStatus, c.status, 'official', dispatch.ok ? `Re-sent by ${req.official.name}` : `Re-send attempt failed: ${dispatch.error}`);
+    saveDb();
+    res.json({ complaint: { ...officialView(c), events: eventsOf(c.id) } });
+  } catch (e) {
+    console.error('[api] resend failed:', e);
+    res.status(500).json({ error: 'Something went wrong while re-sending.' });
+  }
 });
 
 // ---------------------------------------------------------------------------
