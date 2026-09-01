@@ -75,14 +75,14 @@
             <!-- Image upload -->
             <div class="field" id="fieldPhotos">
               <div class="upload-header">
-                <label class="upload-label">Add Photos</label>
-                <span class="upload-optional">Optional</span>
+                <label class="upload-label" data-i18n="photos_add">Add Photos</label>
+                <span class="upload-optional" data-i18n="optional">Optional</span>
               </div>
-              <p class="helper" style="margin-top:0">Photos can help the department understand the issue.</p>
+              <p class="helper" style="margin-top:0" data-i18n="photos_help">Photos can help the department understand the issue.</p>
               <label class="upload-dropzone" for="imageInput" id="dropzone" tabindex="0">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="upload-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                <span class="upload-text">Upload photos of the issue</span>
-                <span class="upload-hint">JPG, PNG • Up to 5 images</span>
+                <span class="upload-text" data-i18n="photos_upload_text">Upload photos of the issue</span>
+                <span class="upload-hint" data-i18n="photos_upload_hint">JPG, PNG • Up to 5 images</span>
                 <input type="file" id="imageInput" accept="image/jpeg, image/png" multiple class="sr-only">
               </label>
               <div id="imagePreviewContainer" class="image-preview-grid"></div>
@@ -117,15 +117,15 @@
 
             <div class="field">
               <label class="field-label-row">
-                <span>Location</span>
-                <span class="upload-optional">Optional</span>
+                <span data-i18n="location_label">Location</span>
+                <span class="upload-optional" data-i18n="optional">Optional</span>
               </label>
               <div class="gps-row">
                 <button type="button" id="gpsBtn" class="btn btn-secondary gps-btn">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>
                   <span data-i18n="gps_use">Use My Location</span>
                 </button>
-                <input id="locationInput" class="control gps-input" type="text" readonly placeholder="No location selected">
+                <input id="locationInput" class="control gps-input" type="text" readonly data-i18n-ph="no_location">
               </div>
               <div class="gps-result" id="gpsResult" hidden>
                 <span class="gps-result-icon" aria-hidden="true">
@@ -147,15 +147,15 @@
             <div class="form-section-header">
               <h2 class="form-section-title">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                <span>Contact Information</span>
+                <span data-i18n="contact_heading">Contact Information</span>
               </h2>
-              <p class="form-section-desc">We'll use this to send you your complaint reference and updates.</p>
+              <p class="form-section-desc" data-i18n="contact_help">We'll use this to send you your complaint reference and updates.</p>
             </div>
 
             <div class="field">
               <label for="idEmail">
-                <span>Email Address</span>
-                <span class="upload-optional">Optional</span>
+                <span data-i18n="email_label">Email Address</span>
+                <span class="upload-optional" data-i18n="optional">Optional</span>
               </label>
               <input id="idEmail" class="control" type="email" placeholder="you@example.com" autocomplete="email" style="direction:ltr; text-align:start">
               <div class="field-error" id="emailError" hidden></div>
@@ -163,8 +163,8 @@
 
             <div class="field">
               <label for="idPhone">
-                <span>Phone Number</span>
-                <span class="upload-optional">Optional</span>
+                <span data-i18n="phone_label">Phone Number</span>
+                <span class="upload-optional" data-i18n="optional">Optional</span>
               </label>
               <input id="idPhone" class="control" type="tel" placeholder="03xx-xxxxxxx" autocomplete="tel" style="direction:ltr; text-align:start">
               <div class="field-error" id="phoneError" hidden></div>
@@ -180,9 +180,9 @@
                 <div class="anon-toggle-text">
                   <span class="anon-toggle-label">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                    Submit anonymously
+                    <span data-i18n="anon_toggle_label">Submit anonymously</span>
                   </span>
-                  <span class="anon-toggle-help">Your name and contact information will not be shared with the responsible department.</span>
+                  <span class="anon-toggle-help" data-i18n="anon_toggle_help">Your name and contact information will not be shared with the responsible department.</span>
                 </div>
               </div>
             </div>

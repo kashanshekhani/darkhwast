@@ -15,6 +15,8 @@ import {
   genId, genTrackingId, verifyPassword, nowIso, RateLimiter,
   hasProfanity, isPhone, isEmail, ipOf, OFFICIAL_STATUSES, PUBLIC_STATUSES,
 } from './lib/util.js';
+import { escalate } from './lib/escalation.js';
+import { assessImage } from './lib/vision.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)));
 const PUB = path.join(ROOT, 'public');
@@ -24,15 +26,32 @@ const PUB = path.join(ROOT, 'public');
   const f = path.join(ROOT, '.env');
   if (!fs.existsSync(f)) return;
   for (const line of fs.readFileSync(f, 'utf8').split(/\r?\n/)) {
-    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-    if (m && process.env[m[1]] === undefined) process.env[m[1]] = m[2];
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)$/);
+    if (!m || process.env[m[1]] !== undefined) continue;
+    let val = m[2];
+    // Strip a trailing inline comment (only when value is not fully quoted).
+    const quote = val.trim()[0];
+    if (quote !== '"' && quote !== "'") val = val.split(/\s+#/)[0];
+    val = val.trim();
+    // Strip one matching pair of surrounding quotes.
+    if (val.length >= 2 && val[0] === val[val.length - 1] && (val[0] === '"' || val[0] === "'")) val = val.slice(1, -1);
+    process.env[m[1]] = val;
   }
 })();
 
 const app = express();
 app.disable('x-powered-by');
-// 5 evidence images x 2MB decoded leaves ~13.4MB of base64 headroom under this cap.
-app.use(express.json({ limit: '20mb' }));
+// Minimal security headers (no helmet dependency). CSP is intentionally omitted
+// because the templates use inline SVG; add a strict CSP later if the SVGs move
+// to external files.
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'same-origin');
+  next();
+});
+// 5 evidence images x 5MB decoded leaves ~4.6MB of base64 headroom under this cap.
+app.use(express.json({ limit: '30mb' }));
 app.use(express.static(PUB, { extensions: ['html'] }));
 
 const UPLOADS_DIR = path.join(ROOT, 'data', 'uploads');
@@ -50,10 +69,32 @@ app.get('/api/media/:filename', (req, res) => {
 
 const db = getDb();
 
-const createRL = new RateLimiter(3, 3600e3);   // 3 complaints/hour per IP
-const sendRL = new RateLimiter(10, 3600e3);
-const loginRL = new RateLimiter(20, 3600e3);
-const readRL = new RateLimiter(120, 3600e3);   // public complaint/tracking reads per IP
+const createRL = new RateLimiter(Number(process.env.RATE_LIMIT_CREATE || 3), Number(process.env.RATE_LIMIT_CREATE_WINDOW_MS || 3600e3));   // complaints per IP
+const sendRL = new RateLimiter(Number(process.env.RATE_LIMIT_SEND || 10), 3600e3);
+const loginRL = new RateLimiter(Number(process.env.RATE_LIMIT_LOGIN || 20), 3600e3);
+const readRL = new RateLimiter(Number(process.env.RATE_LIMIT_READ || 120), 3600e3);   // public complaint/tracking reads per IP
+const editRL = new RateLimiter(Number(process.env.RATE_LIMIT_EDIT || 20), 3600e3);   // citizen category corrections per IP
+
+// ---------------------------------------------------------------------------
+// Server-Sent Events: push live updates to dashboard, queue, complaint detail,
+// and citizen tracking pages. One-directional (server→client), auto-reconnect.
+// ---------------------------------------------------------------------------
+const sseClients = new Set();          // official dashboard/queue clients
+const citizenSseClients = new Map();   // trackingId -> Set of clients
+
+function broadcastEvent(type, payload) {
+  if (!sseClients.size && !citizenSseClients.size) return;
+  const data = `data: ${JSON.stringify({ type, ...payload })}\n\n`;
+  for (const client of sseClients) {
+    try { client.res.write(data); } catch { sseClients.delete(client); }
+  }
+  const tidClients = payload.trackingId && citizenSseClients.get(payload.trackingId);
+  if (tidClients) {
+    for (const client of tidClients) {
+      try { client.res.write(data); } catch { tidClients.delete(client); }
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -86,6 +127,7 @@ function publicView(c) {
     created_at: c.created_at, sent_at: c.sent_at, resolved_at: c.resolved_at,
     draft_english: c.draft_english, letter_final: c.letter_final,
     last_dispatch: c.dispatch_log?.length ? { at: c.dispatch_log.at(-1).at, simulated: c.dispatch_log.at(-1).simulated, ok: c.dispatch_log.at(-1).ok } : null,
+    photo_assessment: c.photo_assessment || null,
   };
 }
 
@@ -97,6 +139,7 @@ function trackView(c) {
     summary_en: c.summary_en, summary_ur: c.summary_ur, city: c.city, area: c.area,
     status: c.status, department: dept ? { name: dept.name } : null,
     created_at: c.created_at, sent_at: c.sent_at, resolved_at: c.resolved_at,
+    escalation_level: c.escalation_level || 0,
     events: eventsOf(c.id).map((e) => ({ from_status: e.from_status, to_status: e.to_status, actor: e.actor, note: e.note, at: e.created_at })),
   };
 }
@@ -109,6 +152,7 @@ function officialView(c) {
     classification_raw: c.classification_raw,
     dispatch_log: c.dispatch_log || [],
     department: c.department_id ? deptOf(c) : null,
+    escalation_level: c.escalation_level || 0, escalated_at: c.escalated_at || null,
   };
 }
 
@@ -127,9 +171,54 @@ const auth = (req, res, next) => {
   }
   req.official = db.officials.find((o) => o.id === session.officialId);
   req.token = token;
-  if (!req.official) return res.status(401).json({ error: 'Session expired.' });
+  if (!req.official) {
+    delete db.sessions[token];
+    saveDb();
+    return res.status(401).json({ error: 'Session expired.' });
+  }
   next();
 };
+
+// ---------------------------------------------------------------------------
+// Server-Sent Events endpoints
+// ---------------------------------------------------------------------------
+// Official SSE stream (dashboard + queue + complaint detail pages).
+// Auth via query param because EventSource cannot set custom headers.
+app.get('/api/official/events', (req, res) => {
+  const token = req.query.token;
+  const session = token && db.sessions[token];
+  if (!session || sessionExpired(session)) return res.status(401).json({ error: 'Not signed in.' });
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+  res.write('data: {"type":"connected"}\n\n');
+  const client = { res, officialId: session.officialId };
+  sseClients.add(client);
+  req.on('close', () => sseClients.delete(client));
+});
+
+// Citizen tracking SSE stream (no auth, keyed by tracking ID).
+// Only broadcasts { type, trackingId, status } — no PII.
+app.get('/api/track/:tid/events', (req, res) => {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+  res.write('data: {"type":"connected"}\n\n');
+  const tid = String(req.params.tid).toUpperCase().trim();
+  if (!citizenSseClients.has(tid)) citizenSseClients.set(tid, new Set());
+  const client = { res };
+  citizenSseClients.get(tid).add(client);
+  req.on('close', () => {
+    const set = citizenSseClients.get(tid);
+    if (set) { set.delete(client); if (!set.size) citizenSseClients.delete(tid); }
+  });
+});
 
 // ---------------------------------------------------------------------------
 // public: meta
@@ -163,6 +252,7 @@ app.post('/api/complaints', async (req, res) => {
 
     const complaintId = genId();
     const savedImages = [];
+    let imagesDropped = 0;
     if (Array.isArray(images)) {
       for (let i = 0; i < Math.min(images.length, 5); i++) {
         const b64 = images[i];
@@ -170,7 +260,8 @@ app.post('/api/complaints', async (req, res) => {
           const match = b64.match(/^data:image\/(png|jpeg);base64,(.+)$/);
           if (match) {
             const buf = Buffer.from(match[2], 'base64');
-            if (buf.length > 2 * 1024 * 1024) continue; // server-side cap: 2MB per image
+            // Server-side cap matches the client cap: 5MB per decoded image.
+            if (buf.length > 5 * 1024 * 1024) { imagesDropped++; continue; }
             const ext = match[1] === 'jpeg' ? 'jpg' : 'png';
             const filename = `${complaintId}-${i}.${ext}`;
             fs.writeFileSync(path.join(UPLOADS_DIR, filename), buf);
@@ -183,12 +274,32 @@ app.post('/api/complaints', async (req, res) => {
     const result = await classifyAndRoute({ rawText: String(raw_text).trim(), city, area: String(area || '').trim(), departments: db.departments });
     const dept = result.department;
     const now = nowIso();
+    const latNum = lat != null ? Number(lat) : null;
+    const lngNum = lng != null ? Number(lng) : null;
+    const hasValidGps = latNum != null && lngNum != null
+      && latNum >= -90 && latNum <= 90 && lngNum >= -180 && lngNum <= 180;
+
+    // AI photo assessment (Qwen-VL): analyze first uploaded image. Non-blocking
+    // on failure — the complaint still gets filed; the assessment is just absent.
+    let photoAssessment = null;
+    if (savedImages.length && Array.isArray(images) && typeof images[0] === 'string') {
+      try {
+        photoAssessment = await assessImage({
+          imageDataUrl: images[0],
+          complaintText: String(raw_text).trim(),
+          category: result.category,
+        });
+      } catch (e) {
+        console.error('[vision] assessment failed:', e.message);
+      }
+    }
+
     const c = {
       id: complaintId, tracking_id: genTrackingId(),
       raw_text: String(raw_text).trim(), language_detected: null,
       city, area: String(area || '').trim(),
       images: savedImages,
-      location: lat != null && lng != null ? { lat: Number(lat), lng: Number(lng) } : null,
+      location: hasValidGps ? { lat: latNum, lng: lngNum } : null,
       category: result.category, severity: result.severity,
       summary_en: result.summary_en, summary_ur: result.summary_ur,
       location_description: result.location_description,
@@ -196,17 +307,22 @@ app.post('/api/complaints', async (req, res) => {
       department_id: dept ? dept.id : null, routing_rationale: result.routing_rationale,
       status: dept && result.confidence >= CONFIDENCE_THRESHOLD ? 'draft' : 'needs_review',
       is_anonymous: anonymous !== false, citizen_name: null,
-      citizen_phone: String(phone).trim() || null, 
+      citizen_phone: String(phone).trim() || null,
       citizen_email: String(email).trim() || null,
       created_at: now, sent_at: null, resolved_at: null,
       dispatch_log: [], letter_final: null, is_sample: false,
+      escalation_level: 0, escalated_at: null,
+      photo_assessment: photoAssessment,
     };
     c.draft_english = buildLetter({ complaint: c, dept, identity: null });
     db.complaints.push(c);
     addEvent(c.id, null, c.status, 'system', `Complaint created and classified (${result.source})`);
     if (!dept) addEvent(c.id, null, c.status, 'system', 'No authority found in knowledge base for this city and category; operator review required');
     saveDb();
-    res.status(201).json({ complaint: publicView(c) });
+    broadcastEvent('complaint:new', { complaintId: c.id, trackingId: c.tracking_id, status: c.status });
+    const resp = { complaint: publicView(c) };
+    if (imagesDropped > 0) resp.images_dropped = imagesDropped;
+    res.status(201).json(resp);
   } catch (e) {
     console.error('[api] create complaint failed:', e);
     res.status(500).json({ error: 'Something went wrong on our side. Please try again.' });
@@ -222,6 +338,7 @@ app.get('/api/complaints/:id', (req, res) => {
 
 // citizen: category correction (FR-2 low-confidence human-in-the-loop)
 app.patch('/api/complaints/:id/category', (req, res) => {
+  if (!editRL.check(ipOf(req))) return res.status(429).json({ error: 'Too many edits from this device. Please try again later.' });
   const c = findByRecordId(req.params.id);
   if (!c) return res.status(404).json({ error: 'Complaint not found.' });
   if (!['draft', 'needs_review'].includes(c.status)) return res.status(409).json({ error: 'This complaint has already been sent.' });
@@ -241,6 +358,7 @@ app.patch('/api/complaints/:id/category', (req, res) => {
   c.draft_english = buildLetter({ complaint: c, dept, identity: null });
   addEvent(c.id, prevStatus, c.status, 'citizen', `Citizen corrected category to "${CATEGORY_PHRASE[category]}"`);
   saveDb();
+  broadcastEvent('complaint:updated', { complaintId: c.id, trackingId: c.tracking_id, status: c.status });
   res.json({ complaint: publicView(c) });
 });
 
@@ -285,20 +403,28 @@ app.post('/api/complaints/:id/send', async (req, res) => {
     const prevStatus = c.status;
     c.is_anonymous = identity.anonymous;
     c.citizen_name = identity.anonymous ? null : identity.name;
-    // citizen_email and citizen_phone are already stored; they remain intact for internal use.
+    // Anonymous sends never retain contact details: the citizen was told nothing
+    // personal is attached, so the stored record must match that promise.
+    if (identity.anonymous) {
+      c.citizen_phone = null;
+      c.citizen_email = null;
+    }
     c.letter_final = letter;
     c.dispatch_log = [...(c.dispatch_log || []), { at: nowIso(), to: dept.email, subject, simulated: dispatch.simulated, message_id: dispatch.message_id, ok: dispatch.ok }];
     c.status = dispatch.ok ? 'sent' : 'send_failed';
     if (dispatch.ok) {
       c.sent_at = nowIso();
       if (c.citizen_email) {
-        // fire and forget citizen confirmation (department is not stored on the
-        // raw record, so attach it for the email template)
-        dispatchCitizenConfirmationEmail({ to: c.citizen_email, complaint: { ...c, department: dept } }).catch(console.error);
+        // fire and forget citizen confirmation — pass only the fields the template needs.
+        dispatchCitizenConfirmationEmail({
+          to: c.citizen_email,
+          complaint: { tracking_id: c.tracking_id, category: c.category, created_at: c.created_at, department: dept },
+        }).catch(console.error);
       }
     }
     addEvent(c.id, prevStatus, c.status, 'citizen', dispatch.ok ? 'Complaint approved and sent by citizen' : 'Delivery failed; system will keep the complaint and retry via operator');
     saveDb();
+    broadcastEvent('complaint:updated', { complaintId: c.id, trackingId: c.tracking_id, status: c.status });
     res.json({ complaint: publicView(c) });
   } catch (e) {
     console.error('[api] send failed:', e);
@@ -367,7 +493,10 @@ app.patch('/api/official/complaints/:id/status', auth, (req, res) => {
   if (req.official.role === 'viewer') return res.status(403).json({ error: 'Viewer accounts cannot update status. Sign in as an operator.' });
   const { to_status, note = '' } = req.body || {};
   if (!OFFICIAL_STATUSES.includes(to_status)) return res.status(400).json({ error: 'Invalid status.' });
-  if (!['sent', 'acknowledged', 'in_progress', 'send_failed'].includes(c.status)) {
+  // send_failed must be re-sent (which moves it to 'sent'); it cannot jump
+  // straight to acknowledged/in_progress/resolved/rejected, since the
+  // department never received it.
+  if (!['sent', 'acknowledged', 'in_progress'].includes(c.status)) {
     return res.status(409).json({ error: `Cannot move a complaint in status "${c.status}".` });
   }
   if (to_status === c.status) return res.status(409).json({ error: `Complaint is already in status "${to_status}".` });
@@ -376,6 +505,7 @@ app.patch('/api/official/complaints/:id/status', auth, (req, res) => {
   if (to_status === 'resolved') c.resolved_at = nowIso();
   addEvent(c.id, prev, to_status, 'official', note || `${req.official.name} set status to ${to_status}`);
   saveDb();
+  broadcastEvent('complaint:updated', { complaintId: c.id, trackingId: c.tracking_id, status: c.status, toStatus: to_status });
   res.json({ complaint: { ...officialView(c), events: eventsOf(c.id) } });
 });
 
@@ -409,6 +539,7 @@ app.post('/api/official/complaints/:id/resend', auth, async (req, res) => {
     }
     addEvent(c.id, prevStatus, c.status, 'official', dispatch.ok ? `Re-sent by ${req.official.name}` : `Re-send attempt failed: ${dispatch.error}`);
     saveDb();
+    broadcastEvent('complaint:updated', { complaintId: c.id, trackingId: c.tracking_id, status: c.status });
     res.json({ complaint: { ...officialView(c), events: eventsOf(c.id) } });
   } catch (e) {
     console.error('[api] resend failed:', e);
@@ -420,7 +551,21 @@ app.post('/api/official/complaints/:id/resend', auth, async (req, res) => {
 // fallbacks
 // ---------------------------------------------------------------------------
 app.use('/api', (req, res) => res.status(404).json({ error: 'Unknown API endpoint.' }));
-app.use((req, res) => res.status(404).sendFile(path.join(PUB, 'index.html')));
+app.use((req, res) => res.status(404).send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DarKhwast — Page not found</title><style>body{font-family:system-ui,sans-serif;background:#FAF7F1;color:#1B2B44;display:flex;min-height:100vh;margin:0;align-items:center;justify-content:center;text-align:center;padding:24px}h1{font-size:64px;margin:0;color:#0E6B5C}p{margin:8px 0 24px}a{color:#fff;background:#0E6B5C;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600}</style></head><body><div><h1>404</h1><p>The page you were looking for does not exist.</p><a href="/">Back to DarKhwast</a></div></body></html>`));
+
+// ---------------------------------------------------------------------------
+// Auto-escalation: run on startup and every hour. Flags complaints that haven't
+// been acknowledged within ESCALATION_DAYS (default 3) as escalated.
+// ---------------------------------------------------------------------------
+function runEscalation() {
+  const count = escalate(db, addEvent, broadcastEvent);
+  if (count > 0) {
+    console.log(`[escalation] ${count} complaint(s) escalated`);
+    saveDb();
+  }
+}
+runEscalation();
+setInterval(runEscalation, 3600e3);
 
 const PORT = Number(process.env.PORT || 3000);
 app.listen(PORT, () => {

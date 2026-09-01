@@ -8,8 +8,22 @@ bindLangToggle(() => state && render(state));
 
 const root = document.getElementById('trackRoot');
 let state = null;
+let evtSource = null;
 
 const ORDER = ['sent', 'acknowledged', 'in_progress', 'resolved'];
+
+function connectSSE() {
+  const tid = (qs('tid') || '').toUpperCase().trim();
+  if (!tid) return;
+  evtSource = new EventSource(`/api/track/${encodeURIComponent(tid)}/events`);
+  evtSource.addEventListener('message', (e) => {
+    const evt = JSON.parse(e.data);
+    if (evt.type === 'complaint:updated') {
+      load();  // re-fetch and re-render the tracking page
+    }
+  });
+  evtSource.onerror = () => console.warn('[sse] reconnecting...');
+}
 
 async function load() {
   const tid = (qs('tid') || '').toUpperCase().trim();
@@ -18,6 +32,7 @@ async function load() {
     const data = await api(`/api/track/${encodeURIComponent(tid)}`);
     state = data.complaint;
     render(state);
+    if (!evtSource) connectSSE();
   } catch (e) {
     root.innerHTML = `
       <div class="empty-state">
@@ -34,7 +49,9 @@ function render(c) {
   const failed = c.status === 'send_failed';
   const rejected = c.status === 'rejected';
   const idx = ORDER.indexOf(c.status);
-  const reached = rejected ? 4 : (idx === -1 ? 1 : idx + 1); // filed + reached steps
+  // send_failed never reached "sent": only the "filed" step is done, and the
+  // current step is a distinct "send pending" marker (not "sent to department").
+  const reached = failed ? 0 : (rejected ? 4 : (idx === -1 ? 1 : idx + 1));
 
   // latest event note per target status
   const noteFor = (status) => {
@@ -49,7 +66,7 @@ function render(c) {
 
   const steps = [
     { key: 'filed', label: tv('steps', 'filed'), note: null, iso: c.created_at },
-    { key: 'sent', label: tv('steps', 'sent'), note: noteFor('sent')?.note, iso: whenFor('sent') },
+    { key: 'sent', label: failed ? t('pending') : tv('steps', 'sent'), note: noteFor('sent')?.note, iso: whenFor('sent') },
     { key: 'acknowledged', label: tv('steps', 'acknowledged'), note: noteFor('acknowledged')?.note, iso: noteFor('acknowledged')?.at },
     { key: 'in_progress', label: tv('steps', 'in_progress'), note: noteFor('in_progress')?.note, iso: noteFor('in_progress')?.at },
     { key: 'resolved', label: rejected ? tv('statuses', 'rejected') : tv('steps', 'resolved'), note: noteFor('resolved')?.note || noteFor('rejected')?.note, iso: noteFor('resolved')?.at || noteFor('rejected')?.at || c.resolved_at },

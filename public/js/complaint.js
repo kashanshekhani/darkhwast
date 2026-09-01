@@ -1,7 +1,7 @@
-// Complaint detail (S8): letter artifact, facts rail, dispatch log, contact,
-// status control with note, full history.
+// Complaint detail — Donezo skin: identity header, 60/40 grid,
+// status shape timeline, AI confidence bar, sticky action dock.
 
-import { api, esc, fmtDateTime, icon, CATEGORY_ICON, mountIcons, requireOfficial, sealSvg, toast, qs } from './shared.js';
+import { api, esc, fmtDateTime, icon, CATEGORY_ICON, mountIcons, requireOfficial, toast, qs, statusIcon, dzStatusPill, statusLabel, sevDots, copyText } from './shared.js';
 import { CAT_LABEL, CITY_LABEL } from './constants.js';
 
 if (!requireOfficial()) throw new Error('redirecting to login');
@@ -12,7 +12,6 @@ document.querySelectorAll('.js-who').forEach((el) => {
   el.innerHTML = `${esc(official.name || 'Official')}<span class="${roleClass.trim()}">${esc(official.role || 'official')}</span>`;
 });
 
-// Mobile sidebar toggle
 function toggleSidebar(open) {
   const side = document.getElementById('dashSide');
   const backdrop = document.getElementById('sideBackdrop');
@@ -26,6 +25,7 @@ document.getElementById('menuBtn')?.addEventListener('click', () => toggleSideba
 document.getElementById('sideBackdrop')?.addEventListener('click', () => toggleSidebar(false));
 document.querySelectorAll('.js-logout').forEach((btn) =>
   btn.addEventListener('click', async () => {
+    if (evtSource) { evtSource.close(); evtSource = null; }
     try { await api('/api/official/logout', { method: 'POST' }); } catch {}
     sessionStorage.removeItem('dk_token');
     sessionStorage.removeItem('dk_official');
@@ -34,18 +34,34 @@ document.querySelectorAll('.js-logout').forEach((btn) =>
 
 const root = document.getElementById('detailRoot');
 let complaint = null;
+let evtSource = null;
+
+function connectSSE() {
+  if (!complaint) return;
+  // Use the public tracking SSE endpoint — it only broadcasts { type, trackingId, status },
+  // no PII. The client then re-fetches the full official data via the authenticated API.
+  evtSource = new EventSource(`/api/track/${encodeURIComponent(complaint.tracking_id)}/events`);
+  evtSource.addEventListener('message', (e) => {
+    const evt = JSON.parse(e.data);
+    if (evt.type === 'complaint:updated' && evt.trackingId === complaint.tracking_id) {
+      load();  // re-fetch and re-render
+    }
+  });
+  evtSource.onerror = () => console.warn('[sse] reconnecting...');
+}
 
 async function load() {
   const id = qs('id');
-  if (!id) { location.href = '/dashboard.html'; return; }
+  if (!id) { location.href = '/queue.html'; return; }
   try {
     const data = await api(`/api/official/complaints/${encodeURIComponent(id)}`);
     complaint = data.complaint;
     render();
+    if (!evtSource) connectSSE();
   } catch (e) {
     if (e.status === 401) { location.href = '/login.html'; return; }
-    root.innerHTML = `<div class="empty-state">${icon('alert')}<h2>${esc(e.message)}</h2>
-      <a class="btn btn-secondary" href="/dashboard.html">Back to queue</a></div>`;
+    root.innerHTML = `<div class="dz-queue-empty">${icon('alert')}<h2>${esc(e.message)}</h2>
+      <a class="dz-btn" href="/queue.html">Back to queue</a></div>`;
     mountIcons(root);
   }
 }
@@ -53,133 +69,215 @@ async function load() {
 function render() {
   const c = complaint;
   const letter = c.letter_final || c.draft_english || '';
-  const canUpdate = ['sent', 'acknowledged', 'in_progress', 'send_failed'].includes(c.status) && official.role !== 'viewer';
+  const canUpdate = ['sent', 'acknowledged', 'in_progress'].includes(c.status) && official.role !== 'viewer';
   const canResend = c.status === 'send_failed' && official.role !== 'viewer';
   const images = c.images || [];
   const dept = c.department;
+  const confPct = Math.round((c.ai_confidence || 0) * 100);
+  const lowConf = (c.ai_confidence || 0) < 0.6;
 
   root.innerHTML = `
-    <div class="detail-head">
-      <span class="dh-id">${esc(c.tracking_id)}</span>
-      <span class="status-chip ${esc(c.status)}"><span class="dot"></span>${esc(c.status).replace('_', ' ')}</span>
-      <div class="sev-heat"><div class="sev-heat-bar"><div class="sev-heat-fill ${c.severity}"></div></div><span class="sev-heat-label" style="color:var(--sev-${c.severity === 'high' ? 'high' : c.severity === 'medium' ? 'med' : 'low'})">${c.severity} severity</span></div>
-      <span class="cat-cell">${icon(CATEGORY_ICON[c.category] || 'other')}${CAT_LABEL[c.category] || esc(c.category)}</span>
-      <div class="dh-meta">
+    <!-- Sticky identity header -->
+    <div class="dz-detail-identity">
+      <div class="dz-detail-id-icon">${statusIcon(c.status, 32)}</div>
+      <div class="dz-detail-id-body">
+        <span class="dz-detail-id-tid mono">${esc(c.tracking_id)}</span>
+        ${dzStatusPill(c.status)}
+        ${sevDots(c.severity)}
+        ${c.escalation_level >= 1 ? '<span class="dz-escalation-badge">escalated</span>' : ''}
+        <span class="dz-detail-id-cat">${icon(CATEGORY_ICON[c.category] || 'other')}${CAT_LABEL[c.category] || esc(c.category)}</span>
+        ${c.is_sample ? '<span class="sample-tag">sample</span>' : ''}
+      </div>
+      <div class="dz-detail-id-meta">
         <span>${CITY_LABEL[c.city] || esc(c.city)}${c.area ? ' · ' + esc(c.area) : ''}</span>
+        <span class="sep">·</span>
         <span>Filed ${fmtDateTime(c.created_at)}</span>
-        ${c.is_sample ? '<span class="sample-tag" title="Seeded demo data, not a real citizen complaint">sample</span>' : ''}
       </div>
     </div>
 
-    <div class="detail-grid">
-      <div>
-        <section class="letter-card" aria-label="Formal complaint letter">
-          <div class="letter-head">
+    <!-- 60/40 grid -->
+    <div class="dz-detail-grid">
+      <!-- Left column: the artifact -->
+      <div class="dz-detail-col-main">
+        <section class="dz-letter-card" aria-label="Formal complaint letter">
+          <button type="button" class="letter-copy-btn" id="copyLetterBtn">${icon('copy')} Copy letter</button>
+          <div class="dz-letter-head">
             <div>
-              <div class="lh-title">DARKHWAST</div>
-              <div class="small muted mono">${esc(c.tracking_id)}</div>
+              <div class="lh-title">DarKhwast</div>
+              <div class="lh-ref mono">${esc(c.tracking_id)}</div>
             </div>
-            ${sealSvg()}
+            <div style="text-align:end">
+              <div class="dz-status-pill ${c.status}" style="margin-bottom:4px">${statusIcon(c.status, 12)}${statusLabel(c.status)}</div>
+              <div style="font-size:12px;color:var(--dz-ink-muted);font-family:var(--dz-mono)">${fmtDateTime(c.created_at)}</div>
+            </div>
           </div>
-          <div class="letter-body">${esc(letter)}</div>
+          <div class="dz-letter-body">${esc(letter)}</div>
         </section>
 
         ${images.length ? `
-        <section class="card" style="margin-top:16px" aria-label="Evidence images">
-          <h3>Evidence (${images.length})</h3>
-          <div class="evidence-gallery">
-            ${images.map((src) => `<div class="evidence-thumb" data-src="${esc(src)}"><img src="${esc(src)}" alt="Evidence photo" loading="lazy" /></div>`).join('')}
+        <section class="dz-card dz-evidence-card" aria-label="Evidence images">
+          <div class="dz-card-head"><h3 class="dz-card-title">Evidence (${images.length})</h3></div>
+          <div class="dz-card-body">
+            <div class="evidence-gallery">
+              ${images.map((src) => `<div class="evidence-thumb" data-src="${esc(src)}"><img src="${esc(src)}" alt="Evidence photo" loading="lazy" /></div>`).join('')}
+            </div>
           </div>
         </section>` : ''}
 
-        <section class="card" style="margin-top:16px">
-          <details class="raw">
-            <summary>Original citizen text</summary>
-            <div class="raw-text">${esc(c.raw_text)}</div>
-          </details>
+        ${c.photo_assessment ? `
+        <section class="dz-card" aria-label="AI photo assessment">
+          <div class="dz-card-head">
+            <div>
+              <h3 class="dz-card-title">AI photo assessment</h3>
+              <p class="dz-card-sub">Qwen-VL analysis of the first evidence image</p>
+            </div>
+          </div>
+          <div class="dz-card-body">
+            <p style="margin:0 0 12px">${esc(c.photo_assessment.description || '')}</p>
+            ${c.photo_assessment.visible_issues?.length ? `
+            <div style="margin-bottom:12px">
+              <strong style="font-size:12px;color:var(--dz-ink-muted);text-transform:uppercase;letter-spacing:.05em">Visible issues</strong>
+              <ul style="margin:6px 0 0;padding-left:20px">
+                ${c.photo_assessment.visible_issues.map((issue) => `<li>${esc(issue)}</li>`).join('')}
+              </ul>
+            </div>` : ''}
+            <div style="display:flex;gap:16px;flex-wrap:wrap">
+              <div>
+                <strong style="font-size:12px;color:var(--dz-ink-muted);text-transform:uppercase;letter-spacing:.05em">Severity</strong>
+                <div>${esc(c.photo_assessment.severity_assessment || '-')}</div>
+              </div>
+              <div>
+                <strong style="font-size:12px;color:var(--dz-ink-muted);text-transform:uppercase;letter-spacing:.05em">Supports complaint</strong>
+                <div>${c.photo_assessment.supports_complaint ? 'Yes' : 'No'}</div>
+              </div>
+            </div>
+          </div>
+        </section>` : ''}
+
+        <section class="dz-card">
+          <div class="dz-card-head"><h3 class="dz-card-title">Original citizen text</h3></div>
+          <div class="dz-card-body">
+            <details class="dz-raw">
+              <summary>Show raw text</summary>
+              <div class="raw-text">${esc(c.raw_text)}</div>
+            </details>
+          </div>
         </section>
 
-        <section class="card" style="margin-top:16px" aria-label="History">
-          <h3>History</h3>
-          <ul class="timeline">
-            ${[...c.events].reverse().map((e, i, arr) => {
-              const isCurrent = i === 0;
-              const isDone = !isCurrent;
-              return `
-              <li class="${isCurrent ? 'tl-current' : isDone ? 'tl-done' : ''}">
-                <div class="tl-mark"><span class="dot"></span></div>
-                <div class="tl-title">${esc(e.to_status).replace('_', ' ')}</div>
-                <div class="tl-when lat">${fmtDateTime(e.at)}</div>
-                ${e.note ? `<div class="tl-note">${esc(e.note)}</div>` : ''}
-                ${e.actor ? `<div class="tl-actor">by ${esc(e.actor)}</div>` : ''}
-              </li>`;
-            }).join('')}
-          </ul>
+        <section class="dz-card" aria-label="History">
+          <div class="dz-card-head"><h3 class="dz-card-title">History</h3></div>
+          <div class="dz-card-body">
+            <ul class="dz-timeline">
+              ${[...c.events].reverse().map((e, i) => {
+                const isCurrent = i === 0;
+                return `
+                <li class="${isCurrent ? 'tl-current' : 'tl-done'}">
+                  <div class="tl-mark"><span class="tl-shape">${statusIcon(e.to_status, 16)}</span></div>
+                  <div class="tl-title">${esc(statusLabel(e.to_status))}</div>
+                  <div class="tl-when">${fmtDateTime(e.at)}</div>
+                  ${e.note ? `<div class="tl-note">${esc(e.note)}</div>` : ''}
+                  ${e.actor ? `<div class="tl-actor">by ${esc(e.actor)}</div>` : ''}
+                </li>`;
+              }).join('')}
+            </ul>
+          </div>
         </section>
       </div>
 
-      <aside class="stack">
-        <section class="card" aria-label="Complaint facts">
-          <h3>Facts</h3>
-          <div class="fact-list">
-            <div class="f"><span class="k">Category</span><span class="v">${CAT_LABEL[c.category] || esc(c.category)}</span></div>
-            <div class="f"><span class="k">Severity</span><span class="v"><span class="sev-dot ${c.severity}"><span class="dot"></span>${c.severity}</span></span></div>
-            <div class="f"><span class="k">AI confidence</span><span class="v mono">${Math.round((c.ai_confidence || 0) * 100)}%</span></div>
-            <div class="f"><span class="k">City</span><span class="v">${CITY_LABEL[c.city] || esc(c.city)}</span></div>
-            <div class="f"><span class="k">Area</span><span class="v">${esc(c.area || '-')}</span></div>
-            <div class="f"><span class="k">Department</span><span class="v">${esc(dept?.name || '-')}</span></div>
+      <!-- Right column: context -->
+      <div class="dz-detail-col-side">
+        <section class="dz-card dz-facts" aria-label="Complaint facts">
+          <div class="dz-card-head"><h3 class="dz-card-title">Facts</h3></div>
+          <div class="dz-card-body">
+            <div class="fact-list">
+              <div class="f"><span class="k">Category</span><span class="v">${CAT_LABEL[c.category] || esc(c.category)}</span></div>
+              <div class="f"><span class="k">Severity</span><span class="v">${sevDots(c.severity)}</span></div>
+              <div class="f"><span class="k">AI confidence</span><span class="v mono">${confPct}%${lowConf ? '<span class="dz-ai-conf-tag">low</span>' : ''}</span></div>
+              <div class="f"><span class="k">City</span><span class="v">${CITY_LABEL[c.city] || esc(c.city)}</span></div>
+              <div class="f"><span class="k">Area</span><span class="v">${esc(c.area || '-')}</span></div>
+              <div class="f"><span class="k">Department</span><span class="v">${esc(dept?.name || '-')}</span></div>
+            </div>
+            <div class="dz-ai-conf-bar"><div class="dz-ai-conf-fill ${lowConf ? 'low' : ''}" style="width:${confPct}%"></div></div>
+            ${dept ? `<div style="font-size:13px;color:var(--dz-ink-muted);margin-top:12px"><span class="mono" style="font-size:12px">${esc(dept.email || '')}</span>${dept.jurisdiction_notes ? `<br>${esc(dept.jurisdiction_notes)}` : ''}</div>` : ''}
+            ${c.routing_rationale ? `<p style="font-size:13px;color:var(--dz-ink-muted);margin-top:12px;margin-bottom:0">${esc(c.routing_rationale)}</p>` : ''}
           </div>
-          ${dept ? `<div class="dept-detail"><span class="dept-email">${esc(dept.email || '')}</span>${dept.jurisdiction_notes ? `<br>${esc(dept.jurisdiction_notes)}` : ''}</div>` : ''}
-          ${c.routing_rationale ? `<p class="small muted" style="margin-top:12px; margin-bottom:0">${esc(c.routing_rationale)}</p>` : ''}
         </section>
 
-        <section class="card" aria-label="Citizen contact">
-          <h3>Contact</h3>
-          ${c.is_anonymous
-            ? `<p class="small muted" style="margin:0">${icon('shield')} Filed anonymously. Reply via the tracking reference.</p>`
-            : `<div class="fact-list">
-                <div class="f"><span class="k">Name</span><span class="v">${esc(c.citizen_name || '-')}</span></div>
-                ${c.citizen_phone ? `<div class="f"><span class="k">Phone</span><span class="v mono">${esc(c.citizen_phone)}</span></div>` : ''}
-                ${c.citizen_email ? `<div class="f"><span class="k">Email</span><span class="v mono">${esc(c.citizen_email)}</span></div>` : ''}
-              </div>`}
+        <section class="dz-card dz-contact" aria-label="Citizen contact">
+          <div class="dz-card-head"><h3 class="dz-card-title">Contact</h3></div>
+          <div class="dz-card-body">
+            ${c.is_anonymous
+              ? `<p style="margin:0;font-size:13px;color:var(--dz-ink-muted);display:flex;align-items:center;gap:8px">${icon('shield')} Filed anonymously. Reply via the tracking reference.</p>`
+              : `<div class="fact-list">
+                  <div class="f"><span class="k">Name</span><span class="v">${esc(c.citizen_name || '-')}</span></div>
+                  ${c.citizen_phone ? `<div class="f"><span class="k">Phone</span><span class="v mono"><a href="tel:${esc(c.citizen_phone)}">${esc(c.citizen_phone)}</a></span></div>` : ''}
+                  ${c.citizen_email ? `<div class="f"><span class="k">Email</span><span class="v mono"><a href="mailto:${esc(c.citizen_email)}">${esc(c.citizen_email)}</a></span></div>` : ''}
+                </div>
+                <button type="button" class="contact-copy-btn" id="copyContactBtn">${icon('copy')} Copy contact</button>`}
+          </div>
         </section>
 
-        <section class="card" aria-label="Dispatch log">
-          <h3>Dispatch log</h3>
-          ${canResend ? `<button type="button" class="btn btn-primary btn-block resend-btn" id="resendBtn">${icon('send')} Re-send complaint</button>` : ''}
-          <div class="dispatch-log">
+        <section class="dz-card dz-dispatch" aria-label="Dispatch log">
+          <div class="dz-card-head"><h3 class="dz-card-title">Dispatch log</h3></div>
+          <div class="dz-card-body">
             ${c.dispatch_log?.length ? c.dispatch_log.map((d) => `
               <div class="dl-row">
-                <div class="mono small">${esc(d.message_id || '-')}${d.simulated ? ' <span class="sample-tag">simulated</span>' : ''}</div>
-                <div class="small">${esc(d.to)} &middot; ${fmtDateTime(d.at)} ${d.ok ? '' : ' &middot; <strong style="color:var(--sev-high)">failed</strong>'}</div>
+                <div class="mono" style="font-size:12px">${esc(d.message_id || '-')}${d.simulated ? ' <span class="sample-tag">simulated</span>' : ''}</div>
+                <div style="font-size:12px;color:var(--dz-ink-muted);margin-top:2px">${esc(d.to)} · ${fmtDateTime(d.at)} ${d.ok ? '' : ' · <strong style="color:var(--dz-rose)">failed</strong>'}</div>
               </div>`).join('')
-            : '<p class="small muted" style="margin:0">Not dispatched yet.</p>'}
+            : '<p style="margin:0;font-size:13px;color:var(--dz-ink-muted)">Not dispatched yet.</p>'}
           </div>
         </section>
+        ${c.location && c.location.lat != null ? `
+        <section class="dz-card" aria-label="Location map">
+          <div class="dz-card-head"><h3 class="dz-card-title">Location</h3></div>
+          <div class="dz-card-body">
+            <div id="detailMap" style="height:240px; border-radius:12px; overflow:hidden"></div>
+          </div>
+        </section>` : ''}
+      </div>
+    </div>
 
-        <section class="card" aria-label="Status control">
-          <h3>Set status</h3>
-          <div id="statusError"></div>
-          ${canUpdate ? `
-            <div class="field" style="margin-bottom:12px">
-              <select class="control" id="statusSelect" aria-label="New status">
-                <option value="acknowledged" ${c.status === 'acknowledged' ? 'selected' : ''}>Acknowledged</option>
-                <option value="in_progress" ${c.status === 'in_progress' ? 'selected' : ''}>In progress</option>
-                <option value="resolved" ${c.status === 'resolved' ? 'selected' : ''}>Resolved</option>
-                <option value="rejected" ${c.status === 'rejected' ? 'selected' : ''}>Rejected</option>
-              </select>
-            </div>
-            <div class="field" style="margin-bottom:12px">
-              <textarea class="control" id="statusNote" rows="2" placeholder="Note (visible to citizen on the tracking page)"></textarea>
-            </div>
-            <button type="button" class="btn btn-primary btn-block" id="updateBtn">Update status</button>`
-          : `<p class="small muted" style="margin:0">${official.role === 'viewer'
-              ? 'Viewer accounts cannot update status. Sign in as an operator.'
-              : 'This complaint is not in a state that can be updated.'}</p>`}
-        </section>
-      </aside>
+    <!-- Sticky action dock -->
+    <div class="dz-action-dock" id="actionDock">
+      <div id="dockError" class="dz-action-dock-error"></div>
+      ${canUpdate || canResend ? `
+        <span class="dz-action-dock-label">Status</span>
+        ${canUpdate ? `<select class="control dock-status" id="statusSelect" aria-label="New status">
+          <option value="acknowledged" ${c.status === 'acknowledged' ? 'selected' : ''}>Acknowledged</option>
+          <option value="in_progress" ${c.status === 'in_progress' ? 'selected' : ''}>In progress</option>
+          <option value="resolved" ${c.status === 'resolved' ? 'selected' : ''}>Resolved</option>
+          <option value="rejected" ${c.status === 'rejected' ? 'selected' : ''}>Rejected</option>
+        </select>` : ''}
+        <input type="text" class="control dock-note" id="statusNote" placeholder="Note (visible to citizen on the tracking page)">
+        ${canResend ? `<button type="button" class="btn" id="resendBtn">${icon('send')} Re-send</button>` : ''}
+        <div class="dock-spacer"></div>
+        ${canUpdate ? `<button type="button" class="btn btn-primary" id="updateBtn">Update status</button>` : ''}
+      ` : `<div class="dock-viewer-msg">${official.role === 'viewer'
+          ? 'Viewer accounts cannot update status. Sign in as an operator.'
+          : 'This complaint is not in a state that can be updated.'}</div>`}
     </div>`;
   mountIcons(root);
+
+  // Inline map for GPS-tagged complaints
+  if (c.location && c.location.lat != null && document.getElementById('detailMap')) {
+    if (typeof L !== 'undefined') {
+      const m = L.map('detailMap').setView([c.location.lat, c.location.lng], 15);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(m);
+      L.marker([c.location.lat, c.location.lng]).addTo(m);
+    } else {
+      document.getElementById('detailMap').innerHTML = '<p style="text-align:center;padding:60px 0;color:var(--dz-ink-muted)">Map unavailable (offline)</p>';
+    }
+  }
+
+  // Copy letter
+  document.getElementById('copyLetterBtn')?.addEventListener('click', () => copyText(letter));
+
+  // Copy contact
+  document.getElementById('copyContactBtn')?.addEventListener('click', () => {
+    const parts = [c.citizen_name, c.citizen_phone, c.citizen_email].filter(Boolean);
+    copyText(parts.join('\n'));
+  });
 
   // Lightbox for evidence images
   root.querySelectorAll('.evidence-thumb')?.forEach((thumb) => {
@@ -207,28 +305,25 @@ function render() {
       render();
     } catch (e) {
       btn.disabled = false;
-      btn.innerHTML = `${icon('send')} Re-send complaint`;
-      mountIcons(btn.parentElement);
-      const errEl = document.getElementById('statusError');
-      errEl.innerHTML = `<div class="status-update-error">${icon('alert')} ${esc(e.message)}</div>`;
-      mountIcons(errEl);
+      btn.innerHTML = `${icon('send')} Re-send`;
+      document.getElementById('dockError').innerHTML = `<div class="dz-status-update-error">${icon('alert')} ${esc(e.message)}</div>`;
+      mountIcons(document.getElementById('dockError'));
     }
   });
 
+  // Update status
   document.getElementById('updateBtn')?.addEventListener('click', async () => {
     const btn = document.getElementById('updateBtn');
     const newStatus = document.getElementById('statusSelect').value;
     const note = document.getElementById('statusNote').value;
-    const errEl = document.getElementById('statusError');
+    const errEl = document.getElementById('dockError');
     errEl.innerHTML = '';
 
-    // Confirm destructive status changes
     if (newStatus === 'rejected') {
       const confirmed = await showConfirmModal({
         title: 'Reject this complaint?',
-        body: `<p>Are you sure you want to mark complaint <strong>${esc(c.tracking_id)}</strong> as <span class="status-preview">Rejected</span>? This will be visible to the citizen on their tracking page.</p>`,
+        body: `<p>Are you sure you want to mark complaint <strong>${esc(c.tracking_id)}</strong> as <strong>Rejected</strong>? This will be visible to the citizen on their tracking page.</p>`,
         confirmLabel: 'Reject',
-        confirmClass: 'btn-primary',
       });
       if (!confirmed) return;
     }
@@ -246,23 +341,23 @@ function render() {
     } catch (e) {
       btn.disabled = false;
       btn.textContent = 'Update status';
-      errEl.innerHTML = `<div class="status-update-error">${icon('alert')} ${esc(e.message)}</div>`;
+      errEl.innerHTML = `<div class="dz-status-update-error">${icon('alert')} ${esc(e.message)}</div>`;
       mountIcons(errEl);
     }
   });
 }
 
-function showConfirmModal({ title, body, confirmLabel, confirmClass }) {
+function showConfirmModal({ title, body, confirmLabel }) {
   return new Promise((resolve) => {
     const backdrop = document.createElement('div');
     backdrop.className = 'modal-backdrop';
     backdrop.innerHTML = `
-      <div class="modal confirm-status-modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
         <h2 id="confirmTitle">${esc(title)}</h2>
         <div class="modal-body">${body}</div>
         <div class="actions">
-          <button type="button" class="btn btn-secondary" id="confirmCancel">Cancel</button>
-          <button type="button" class="btn ${confirmClass || 'btn-primary'}" id="confirmOk">${esc(confirmLabel || 'Confirm')}</button>
+          <button type="button" class="btn" id="confirmCancel">Cancel</button>
+          <button type="button" class="btn btn-primary" id="confirmOk">${esc(confirmLabel || 'Confirm')}</button>
         </div>
       </div>`;
     document.body.appendChild(backdrop);

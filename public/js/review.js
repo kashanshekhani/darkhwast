@@ -20,7 +20,7 @@ const CATS = ['garbage', 'streetlight', 'water', 'sewage', 'road', 'other'];
 
 function catLabel(c) { return tv('categories', c); }
 function needsPick(c) {
-  return c.status === 'needs_review' || c.ai_confidence < 0.6 || (!c.category || c.category === 'other' && c.ai_confidence < 0.6);
+  return c.status === 'needs_review' || c.ai_confidence < 0.6 || !c.category;
 }
 
 async function load() {
@@ -178,7 +178,7 @@ function render(c) {
         </div>` : ''}
 
       <div class="review-meta-grid" style="margin-top:16px">
-        ${c.area ? `<span class="rmk">Location</span><span class="rmv">${esc(c.area)}, ${esc(c.city ? c.city.charAt(0).toUpperCase() + c.city.slice(1) : '')}</span>` : `<span class="rmk">City</span><span class="rmv">${esc(c.city ? c.city.charAt(0).toUpperCase() + c.city.slice(1) : '')}</span>`}
+        ${c.area ? `<span class="rmk">Location</span><span class="rmv">${esc(c.area)}, ${esc(tv('cities', c.city))}</span>` : `<span class="rmk">City</span><span class="rmv">${esc(tv('cities', c.city))}</span>`}
         <span class="rmk">Severity</span><span class="rmv"><span class="sev-dot ${c.severity}"><span class="dot"></span>${tv('severities', c.severity)}</span></span>
         <span class="rmk">Reference</span><span class="rmv"><span class="mono small">${esc(c.tracking_id)}</span></span>
       </div>
@@ -263,7 +263,7 @@ function render(c) {
         <div id="anonIndicator" style="margin-top:10px">
           ${anonState
             ? `<span class="anon-badge">🔒 Anonymous Complaint</span>
-               <p class="small muted" style="margin-top:8px">Your name and contact information will not be shared with the government department. Your email (if provided) is kept internally only for sending your confirmation.</p>`
+               <p class="small muted" style="margin-top:8px">Your name, phone and email will not be shared with the government department. No contact details are attached to the letter.</p>`
             : `<span class="anon-badge identified">👤 Identified Complaint</span>
                <p class="small muted" style="margin-top:8px">Your name will be included in the letter sent to the department.</p>`}
         </div>
@@ -361,7 +361,7 @@ function wire(c) {
     if (anonIndicator) {
       anonIndicator.innerHTML = anonState
         ? `<span class="anon-badge">🔒 Anonymous Complaint</span>
-           <p class="small muted" style="margin-top:8px">Your name and contact information will not be shared with the government department. Your email (if provided) is kept internally only for sending your confirmation.</p>`
+           <p class="small muted" style="margin-top:8px">Your name, phone and email will not be shared with the government department. No contact details are attached to the letter.</p>`
         : `<span class="anon-badge identified">👤 Identified Complaint</span>
            <p class="small muted" style="margin-top:8px">Your name will be included in the letter sent to the department.</p>`;
     }

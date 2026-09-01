@@ -186,3 +186,4 @@ Honest boundaries, stated so the demo stays credible:
 - The offline classifier is keyword-based; the Qwen path (via `DASHSCOPE_API_KEY`) is both the production mode and the hackathon's Alibaba Cloud story
 - Auth is prototype-grade (bearer tokens with expiry, scrypt-hashed passwords with a legacy-hash migration path) — fine for the demo, not production
 - Citizen-facing system event notes are English-only in this version
+- **Citizen complaint access is by record UUID, not a secret token.** The unguessable record id returned at creation (`/api/complaints/:id`, used in the review/sent URLs) acts as a bearer credential for that complaint's full data (raw text, images, GPS, letter). Anyone who learns the URL can read the complaint. The public tracking page (`/api/track/:tid`) is the safe, PII-free surface keyed by the separate tracking ID. Before any production use, gate citizen endpoints on a per-complaint secret token issued at creation.

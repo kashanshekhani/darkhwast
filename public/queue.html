@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DarKhwast - Complaint queue</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%230E6B5C'/><text x='16' y='21' font-size='13' font-family='monospace' text-anchor='middle' fill='white'>DK</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Public+Sans:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/dashboard-donezo.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <div class="dash-side-backdrop" id="sideBackdrop"></div>
+  <div class="dash-layout">
+    <aside class="dash-side" id="dashSide">
+      <a class="side-brand" href="/dashboard.html"><span class="dk-mark">DK</span> DarKhwast <span class="side-brand-tag">· Dashboard</span></a>
+      <div class="side-scroll">
+        <div class="side-label">Work</div>
+        <nav class="side-nav" aria-label="Main navigation" id="sideNav">
+          <a class="side-link" href="/dashboard.html"><span class="nav-label">Dashboard</span></a>
+          <a class="side-link active" href="/queue.html" data-nav="queue" role="tab" aria-selected="true"><span class="nav-label">Complaint Queue</span><span class="side-count" id="cnt-all"></span></a>
+          <a class="side-link attention-dot" href="/queue.html?attention=1"><span class="nav-label">Needs attention</span><span class="side-count" id="cnt-attention"></span></a>
+        </nav>
+        <div class="side-label">By status</div>
+        <nav class="side-nav" aria-label="Status filters" id="statusNav">
+          <a class="side-link" href="/queue.html?status=draft" data-status="draft"><span class="nav-label">Draft</span><span class="side-count" id="cnt-draft"></span></a>
+          <a class="side-link" href="/queue.html?status=needs_review" data-status="needs_review"><span class="nav-label">Needs review</span><span class="side-count" id="cnt-needs_review"></span></a>
+          <a class="side-link" href="/queue.html?status=sent" data-status="sent"><span class="nav-label">Sent</span><span class="side-count" id="cnt-sent"></span></a>
+          <a class="side-link" href="/queue.html?status=send_failed" data-status="send_failed"><span class="nav-label">Send failed</span><span class="side-count" id="cnt-send_failed"></span></a>
+          <a class="side-link" href="/queue.html?status=acknowledged" data-status="acknowledged"><span class="nav-label">Acknowledged</span><span class="side-count" id="cnt-acknowledged"></span></a>
+          <a class="side-link" href="/queue.html?status=in_progress" data-status="in_progress"><span class="nav-label">In progress</span><span class="side-count" id="cnt-in_progress"></span></a>
+          <a class="side-link" href="/queue.html?status=resolved" data-status="resolved"><span class="nav-label">Resolved</span><span class="side-count" id="cnt-resolved"></span></a>
+          <a class="side-link" href="/queue.html?status=rejected" data-status="rejected"><span class="nav-label">Rejected</span><span class="side-count" id="cnt-rejected"></span></a>
+        </nav>
+      </div>
+      <div class="side-foot">
+        <div class="dz-rail-promo">
+          <div class="promo-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg></div>
+          <div class="promo-title">Citizen portal</div>
+          <div class="promo-text">Track a complaint by reference number, no login needed.</div>
+          <a class="promo-btn" href="/">Open portal</a>
+        </div>
+        <button type="button" class="btn js-logout">Sign out</button>
+      </div>
+    </aside>
+
+    <div class="dash-main">
+      <header class="dash-head">
+        <div class="dash-head-inner">
+          <div style="display:flex; align-items:center; gap:10px">
+            <button type="button" class="menu-btn" id="menuBtn" aria-label="Open menu" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+            <a class="wordmark" href="/dashboard.html"><span class="dk-mark">DK</span> DarKhwast <span style="font-weight:400; opacity:.8; font-size:13px">Queue</span></a>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px">
+            <span class="who js-who"></span>
+            <button type="button" class="btn js-logout">Sign out</button>
+          </div>
+        </div>
+      </header>
+
+      <main id="main" class="dash-content">
+        <div class="dz-page-head">
+          <div class="dz-greeting">
+            <h1>Complaint queue</h1>
+            <p id="queueSub">Loading…</p>
+          </div>
+          <div class="dz-head-actions">
+            <button type="button" class="dz-btn" id="exportBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
+          </div>
+        </div>
+
+        <div class="dz-offline-banner" id="offlineBanner"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4"/><path d="M12 17.5h.01"/></svg>Connection lost, showing last loaded complaints.</div>
+        <div class="dz-error-banner" id="errorBanner" hidden><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4"/><path d="M12 17.5h.01"/></svg><span id="errorMsg">Failed to load complaints.</span><button type="button" class="retry-btn" id="retryBtn">Retry</button></div>
+
+        <div class="dz-queue-section">
+          <div class="dz-queue-header">
+            <h2 class="dz-queue-title">All complaints</h2>
+            <span class="dz-queue-count" id="queueCount"></span>
+          </div>
+          <button type="button" class="dz-filter-toggle" id="filterToggle" aria-expanded="false">Filters<span class="filter-count" id="filterCount" hidden>0</span></button>
+          <div class="dz-filter-bar" id="filterBar">
+            <input type="search" class="control search" id="fSearch" placeholder="Search ID, area, text, department..." aria-label="Search complaints">
+            <select class="control" id="fCity" aria-label="Filter by city">
+              <option value="">All cities</option>
+              <option value="karachi">Karachi</option>
+              <option value="lahore">Lahore</option>
+              <option value="islamabad">Islamabad</option>
+              <option value="faisalabad">Faisalabad</option>
+            </select>
+            <select class="control" id="fCat" aria-label="Filter by category">
+              <option value="">All categories</option>
+              <option value="garbage">Garbage & waste</option>
+              <option value="streetlight">Streetlight</option>
+              <option value="water">Water supply</option>
+              <option value="sewage">Sewage</option>
+              <option value="road">Road damage</option>
+              <option value="other">Other</option>
+            </select>
+            <select class="control" id="fSev" aria-label="Filter by severity">
+              <option value="">All severity</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+            <select class="control" id="fStatus" aria-label="Filter by status">
+              <option value="">All statuses</option>
+              <option value="draft">Draft</option>
+              <option value="needs_review">Needs review</option>
+              <option value="sent">Sent</option>
+              <option value="send_failed">Send failed</option>
+              <option value="acknowledged">Acknowledged</option>
+              <option value="in_progress">In progress</option>
+              <option value="resolved">Resolved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+            <select class="control sort-control" id="fSort" aria-label="Sort by">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="severity">Highest severity</option>
+              <option value="waiting">Longest waiting</option>
+            </select>
+            <button type="button" class="dz-preset-chip" id="attentionChip" aria-pressed="false">Needs attention</button>
+            <button type="button" class="dz-clear-btn" id="clearBtn" hidden>Clear filters</button>
+          </div>
+          <div class="dz-queue-list" id="queueList"></div>
+          <div class="dz-queue-empty" id="emptyState" hidden></div>
+          <div class="dz-queue-loadmore" id="loadMoreWrap" hidden>
+            <button type="button" class="dz-load-more-btn" id="loadMoreBtn">Load more</button>
+            <div class="dz-row-count" id="rowCount"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script type="module" src="/js/queue.js"></script>
+</body>
+</html>

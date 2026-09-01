@@ -1,20 +1,14 @@
-// Dashboard queue (S7): sidebar navigation with counts, stat cards with icons,
-// filters, "needs attention" preset, dense table with department column.
+// Dashboard — Donezo skin: analytics only (greeting, KPIs, 7-day bar chart,
+// donut progress, category bars, activity feed). Queue list moved to queue.js.
 
-import { api, esc, icon, CATEGORY_ICON, mountIcons, requireOfficial, timeAgo, toast } from './shared.js';
-import { CITIES, CATS, CAT_LABEL, CITY_LABEL } from './constants.js';
+import { api, esc, icon, CATEGORY_ICON, mountIcons, requireOfficial, timeAgo, toast, statusIcon, statusColor, donutProgress, barChart7d } from './shared.js';
+import { CATS, CAT_LABEL, CITY_LABEL } from './constants.js';
 
 const OPEN = ['sent', 'acknowledged', 'in_progress', 'send_failed', 'needs_review', 'draft'];
-const ATTENTION = ['needs_review', 'send_failed'];
-const ALL_NAV_STATUSES = ['draft', 'needs_review', 'sent', 'send_failed', 'acknowledged', 'in_progress', 'resolved', 'rejected'];
-const PAGE_SIZE = 25;
 
 if (!requireOfficial()) throw new Error('redirecting to login');
 
 let complaints = [];
-let attention = false;
-let visibleCount = PAGE_SIZE;
-let loaded = false;
 
 const official = JSON.parse(sessionStorage.getItem('dk_official') || '{}');
 document.querySelectorAll('.js-who').forEach((el) => {
@@ -22,15 +16,6 @@ document.querySelectorAll('.js-who').forEach((el) => {
   el.innerHTML = `${esc(official.name || 'Official')}<span class="${roleClass.trim()}">${esc(official.role || 'official')}</span>`;
 });
 
-// Hero meta: current date
-const meta = document.getElementById('dashMeta');
-if (meta) {
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  meta.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> ${dateStr}`;
-}
-
-// Mobile sidebar toggle
 function toggleSidebar(open) {
   const side = document.getElementById('dashSide');
   const backdrop = document.getElementById('sideBackdrop');
@@ -43,14 +28,6 @@ function toggleSidebar(open) {
 document.getElementById('menuBtn')?.addEventListener('click', () => toggleSidebar());
 document.getElementById('sideBackdrop')?.addEventListener('click', () => toggleSidebar(false));
 
-// Filter toggle for mobile
-const filterBar = document.getElementById('filterBar');
-document.getElementById('filterToggle')?.addEventListener('click', (e) => {
-  const collapsed = filterBar.classList.toggle('collapsed');
-  e.currentTarget.setAttribute('aria-expanded', String(!collapsed));
-});
-
-// Offline banner
 const offlineBanner = document.getElementById('offlineBanner');
 function updateOffline() { offlineBanner.classList.toggle('show', !navigator.onLine); }
 window.addEventListener('online', updateOffline);
@@ -59,21 +36,36 @@ updateOffline();
 
 document.querySelectorAll('.js-logout').forEach((btn) =>
   btn.addEventListener('click', async () => {
+    if (evtSource) { evtSource.close(); evtSource = null; }
     try { await api('/api/official/logout', { method: 'POST' }); } catch {}
     sessionStorage.removeItem('dk_token');
     sessionStorage.removeItem('dk_official');
     location.href = '/login.html';
   }));
 
-function showSkeletonRows() {
-  const tbody = document.getElementById('tbody');
-  tbody.innerHTML = Array.from({ length: 6 }, () =>
-    '<tr class="skel-row"><td><div class="skel-cell" style="width:90px"></div></td><td><div class="skel-cell" style="width:80px"></div></td><td><div class="skel-cell" style="width:120px"></div></td><td><div class="skel-cell" style="width:100px"></div></td><td><div class="skel-cell" style="width:50px"></div></td><td><div class="skel-cell" style="width:70px"></div></td><td><div class="skel-cell" style="width:30px"></div></td><td></td></tr>'
-  ).join('');
+let evtSource = null;
+function connectSSE() {
+  const token = sessionStorage.getItem('dk_token');
+  if (!token) return;
+  evtSource = new EventSource(`/api/official/events?token=${encodeURIComponent(token)}`);
+  evtSource.addEventListener('message', (e) => {
+    const evt = JSON.parse(e.data);
+    if (evt.type === 'complaint:new') {
+      toast(`New complaint filed: ${evt.trackingId}`);
+      load();
+    } else if (evt.type === 'complaint:updated' || evt.type === 'complaint:escalated') {
+      load();
+    }
+  });
+  evtSource.onerror = () => {
+    if (evtSource && evtSource.readyState === EventSource.CLOSED) {
+      // Auth likely expired — redirect to login
+      if (sessionStorage.getItem('dk_token')) location.href = '/login.html';
+    }
+  };
 }
 
 async function load() {
-  showSkeletonRows();
   const errorBanner = document.getElementById('errorBanner');
   let data;
   try {
@@ -82,269 +74,258 @@ async function load() {
     if (e.status === 401) { location.href = '/login.html'; return; }
     errorBanner.hidden = false;
     document.getElementById('errorMsg').textContent = e.message || 'Failed to load complaints.';
-    document.getElementById('tbody').innerHTML = '';
     return;
   }
   errorBanner.hidden = true;
-  loaded = true;
   complaints = data.complaints;
   if (data.mail_mode === 'simulated') {
-    const html = `${icon('info')}<div><strong>Demo mode:</strong> email dispatch is simulated on this server. Configure SMTP in <code>.env</code> for real delivery.</div>`;
-    document.getElementById('mailBanner').innerHTML = html;
-    document.getElementById('mailBanner').hidden = false;
-    document.getElementById('sideNote').innerHTML = '<strong>Demo mode.</strong> Email dispatch is simulated on this server. Configure SMTP in <code>.env</code> for real delivery.';
-    mountIcons(document.getElementById('mailBanner'));
+    const html = `${icon('info')}<div><strong>Demo mode:</strong> email dispatch is simulated. Configure SMTP in <code>.env</code> for real delivery.</div><button class="demo-dismiss" aria-label="Dismiss">&times;</button>`;
+    const banner = document.getElementById('mailBanner');
+    banner.innerHTML = html;
+    banner.hidden = false;
+    mountIcons(banner);
+    banner.querySelector('.demo-dismiss')?.addEventListener('click', () => { banner.hidden = true; });
   }
-  renderStats();
-  applyUrlFilter();
-  applyFilters();
+  navCounts();
+  renderGreeting();
+  renderKPIs();
+  renderCharts();
+  renderActivityFeed();
+  renderMap();
+  if (!evtSource) connectSSE();
 }
 
 document.getElementById('retryBtn')?.addEventListener('click', load);
 
-// deep links: dashboard.html?status=sent | ?attention=1
-function applyUrlFilter() {
-  const p = new URLSearchParams(location.search);
-  if (p.get('attention') === '1') {
-    attention = true;
-    document.getElementById('attentionChip').setAttribute('aria-pressed', 'true');
-    syncNav('attention');
-  } else if (p.get('status')) {
-    document.getElementById('fStatus').value = p.get('status');
-    syncNav(ALL_NAV_STATUSES.includes(p.get('status')) ? p.get('status') : null);
-  } else {
-    syncNav(null);
-  }
-}
-
 function navCounts() {
   document.getElementById('cnt-all').textContent = complaints.length;
-  document.getElementById('cnt-attention').textContent = complaints.filter((c) => ATTENTION.includes(c.status)).length;
-  for (const s of ALL_NAV_STATUSES) {
+  for (const s of ['draft', 'needs_review', 'sent', 'send_failed', 'acknowledged', 'in_progress', 'resolved', 'rejected']) {
     const el = document.getElementById(`cnt-${s}`);
     if (el) el.textContent = complaints.filter((c) => c.status === s).length;
   }
 }
 
-function syncNav(active) {
-  document.querySelectorAll('#sideNav .side-link').forEach((b) => {
-    const isActive = b.dataset.nav === (active || 'all');
-    b.classList.toggle('active', isActive);
-    b.setAttribute('aria-selected', String(isActive));
-  });
+function renderGreeting() {
+  const hour = new Date().getHours();
+  const part = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
+  document.getElementById('greetingTitle').textContent = `Good ${part}, ${official.name?.split(' ')[0] || 'Official'}`;
+  const open = complaints.filter((c) => OPEN.includes(c.status)).length;
+  const att = complaints.filter((c) => ['needs_review', 'send_failed'].includes(c.status)).length;
+  document.getElementById('greetingSub').textContent = att > 0
+    ? `${att} complaint${att !== 1 ? 's' : ''} need attention · ${open} open total`
+    : `${open} complaint${open !== 1 ? 's' : ''} open · all clear`;
 }
 
-function renderStats() {
-  navCounts();
-  const open = complaints.filter((c) => OPEN.includes(c.status));
-  const attentionCount = complaints.filter((c) => ATTENTION.includes(c.status)).length;
+function renderKPIs() {
+  const open = complaints.filter((c) => OPEN.includes(c.status)).length;
+  const attCount = complaints.filter((c) => ['needs_review', 'send_failed'].includes(c.status)).length;
   const resolved = complaints.filter((c) => c.status === 'resolved').length;
-  const byCat = CATS.map((k) => ({ k, n: open.filter((c) => c.category === k).length })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 4);
-  const byCity = CITIES.map((c) => ({ k: c.id, n: open.filter((x) => x.city === c.id).length })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 4);
-  const maxCat = Math.max(1, ...byCat.map((x) => x.n));
-  const maxCity = Math.max(1, ...byCity.map((x) => x.n));
+  const total = complaints.length;
+  const resolutionRate = total > 0 ? Math.round((resolved / total) * 100) : 0;
 
-  document.getElementById('statsRoot').innerHTML = `
-    <div class="stat-grid">
-      <div class="stat-card">
-        <span class="stat-ic">${icon('file')}</span>
-        <div class="stat-body">
-          <div class="num">${complaints.length}</div>
-          <div class="lbl">Total complaints</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <span class="stat-ic">${icon('send')}</span>
-        <div class="stat-body">
-          <div class="num">${open.length}</div>
-          <div class="lbl">Open</div>
-        </div>
-      </div>
-      <div class="stat-card warn">
-        <span class="stat-ic">${icon('alert')}</span>
-        <div class="stat-body">
-          <div class="num">${attentionCount}</div>
-          <div class="lbl">Needs attention</div>
-        </div>
-      </div>
-      <div class="stat-card ok">
-        <span class="stat-ic">${icon('check')}</span>
-        <div class="stat-body">
-          <div class="num">${resolved}</div>
-          <div class="lbl">Resolved</div>
-        </div>
-      </div>
-      <div class="stat-card full">
-        <div class="stat-body">
-          <div class="lbl" style="margin-bottom:10px">Open by category</div>
-          <div class="bars">
-            ${byCat.length ? byCat.map((x) => `
-              <div class="bar-row"><span>${CAT_LABEL[x.k]}</span><span class="track"><span class="fill" style="width:${Math.round((x.n / maxCat) * 100)}%; display:block"></span></span><span class="cnt">${x.n}</span></div>`).join('')
-            : '<span class="small muted">-</span>'}
-          </div>
-        </div>
-      </div>
-      <div class="stat-card full">
-        <div class="stat-body">
-          <div class="lbl" style="margin-bottom:10px">Open by city</div>
-          <div class="bars">
-            ${byCity.length ? byCity.map((x) => `
-              <div class="bar-row"><span>${CITY_LABEL[x.k]}</span><span class="track"><span class="fill" style="width:${Math.round((x.n / maxCity) * 100)}%; display:block"></span></span><span class="cnt">${x.n}</span></div>`).join('')
-            : '<span class="small muted">-</span>'}
-          </div>
-        </div>
-      </div>
-    </div>`;
-  mountIcons(document.getElementById('statsRoot'));
-}
-
-function currentFilters() {
-  return {
-    q: document.getElementById('fSearch').value.trim().toLowerCase(),
-    city: document.getElementById('fCity').value,
-    cat: document.getElementById('fCat').value,
-    sev: document.getElementById('fSev').value,
-    status: document.getElementById('fStatus').value,
-  };
-}
-
-function getFilteredRows() {
-  const { q, city, cat, sev, status } = currentFilters();
-  return complaints.filter((c) => {
-    if (city && c.city !== city) return false;
-    if (cat && c.category !== cat) return false;
-    if (sev && c.severity !== sev) return false;
-    if (attention && !ATTENTION.includes(c.status)) return false;
-    if (!attention && status && c.status !== status) return false;
-    if (q) {
-      const hay = `${c.tracking_id} ${c.area || ''} ${c.city} ${c.raw_text || ''} ${c.department?.name || ''} ${c.summary_en || ''}`.toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
-    return true;
-  });
-}
-
-function updateFilterCount() {
-  const { q, city, cat, sev, status } = currentFilters();
-  let count = 0;
-  if (q) count++;
-  if (city) count++;
-  if (cat) count++;
-  if (sev) count++;
-  if (status) count++;
-  if (attention) count++;
-  const el = document.getElementById('filterCount');
-  el.hidden = count === 0;
-  el.textContent = count;
-}
-
-function applyFilters() {
-  updateFilterCount();
-  const rows = getFilteredRows();
-  const visible = rows.slice(0, visibleCount);
-
-  const tbody = document.getElementById('tbody');
-  const empty = document.getElementById('emptyState');
-  const loadMoreWrap = document.getElementById('loadMoreWrap');
-
-  if (!rows.length) {
-    tbody.innerHTML = '';
-    empty.hidden = false;
-    empty.innerHTML = complaints.length
-      ? `${icon('search')}<h2>No complaints match these filters</h2><button type="button" class="btn btn-secondary" id="clearBtn">Clear filters</button>`
-      : `${icon('inbox')}<h2>No complaints yet</h2><p class="muted">Complaints filed by citizens will appear here.</p>`;
-    mountIcons(empty);
-    loadMoreWrap.hidden = true;
-    document.getElementById('clearBtn')?.addEventListener('click', () => {
-      ['fSearch', 'fCity', 'fCat', 'fSev', 'fStatus'].forEach((id) => (document.getElementById(id).value = ''));
-      attention = false;
-      visibleCount = PAGE_SIZE;
-      document.getElementById('attentionChip').setAttribute('aria-pressed', 'false');
-      syncNav('all');
-      applyFilters();
+  const ackTimes = complaints
+    .filter((c) => c.events?.some((e) => e.to_status === 'acknowledged'))
+    .map((c) => {
+      const ev = c.events.find((e) => e.to_status === 'acknowledged');
+      return (new Date(ev.at).getTime() - new Date(c.created_at).getTime()) / 86400000;
     });
+  const avgAck = ackTimes.length ? (ackTimes.reduce((a, b) => a + b, 0) / ackTimes.length).toFixed(1) + 'd' : '—';
+
+  const now = new Date();
+  const weekAgo = new Date(now); weekAgo.setDate(weekAgo.getDate() - 7);
+  const twoWeeksAgo = new Date(now); twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+  const thisWeek = complaints.filter((c) => {
+    const ev = c.events?.find((e) => e.to_status === 'resolved');
+    return ev && new Date(ev.at) >= weekAgo;
+  }).length;
+  const lastWeek = complaints.filter((c) => {
+    const ev = c.events?.find((e) => e.to_status === 'resolved');
+    return ev && new Date(ev.at) >= twoWeeksAgo && new Date(ev.at) < weekAgo;
+  }).length;
+  const trend = thisWeek > lastWeek ? 'up' : thisWeek < lastWeek ? 'down' : 'flat';
+  const trendArrow = trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→';
+  const trendText = trend === 'flat' ? 'same' : `${Math.abs(thisWeek - lastWeek)} vs last week`;
+
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="dz-kpi-card feature">
+      <div class="dz-kpi-card-top">
+        <div class="dz-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+        <span class="dz-kpi-trend">${trendArrow} ${trendText}</span>
+      </div>
+      <div class="dz-kpi-num">${resolved}</div>
+      <div class="dz-kpi-label">Resolved total</div>
+      <div class="dz-kpi-sub">${resolutionRate}% resolution rate</div>
+    </div>
+    <div class="dz-kpi-card">
+      <div class="dz-kpi-card-top">
+        <div class="dz-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+      </div>
+      <div class="dz-kpi-num">${open}</div>
+      <div class="dz-kpi-label">Open complaints</div>
+      <div class="dz-kpi-sub">across all departments</div>
+    </div>
+    <div class="dz-kpi-card ${attCount > 0 ? 'warn' : ''}">
+      <div class="dz-kpi-card-top">
+        <div class="dz-kpi-icon" style="${attCount > 0 ? 'background:var(--dz-amber-tint);color:var(--dz-amber)' : ''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg></div>
+      </div>
+      <div class="dz-kpi-num">${attCount}</div>
+      <div class="dz-kpi-label">Needs attention</div>
+      <div class="dz-kpi-sub">${complaints.filter((c) => c.status === 'send_failed').length} failed deliveries</div>
+    </div>
+    <div class="dz-kpi-card">
+      <div class="dz-kpi-card-top">
+        <div class="dz-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+      </div>
+      <div class="dz-kpi-num">${avgAck}</div>
+      <div class="dz-kpi-label">Avg. ack time</div>
+      <div class="dz-kpi-sub">target &lt; 2 days</div>
+    </div>`;
+}
+
+function buildDailyData(days) {
+  const out = [];
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - i);
+    const next = new Date(d);
+    next.setDate(d.getDate() + 1);
+    const filed = complaints.filter((c) => {
+      const t = new Date(c.created_at).getTime();
+      return t >= d.getTime() && t < next.getTime();
+    }).length;
+    const resolved = complaints.filter((c) => {
+      const ev = c.events?.find((e) => e.to_status === 'resolved');
+      if (!ev) return false;
+      const t = new Date(ev.at).getTime();
+      return t >= d.getTime() && t < next.getTime();
+    }).length;
+    out.push({ day: dayNames[d.getDay()], date: d.toISOString(), filed, resolved });
+  }
+  return out;
+}
+
+function renderCharts() {
+  document.getElementById('barChart').innerHTML = barChart7d(buildDailyData(7));
+
+  const total = complaints.length;
+  const resolved = complaints.filter((c) => c.status === 'resolved').length;
+  const rate = total > 0 ? Math.round((resolved / total) * 100) : 0;
+  document.getElementById('donutProgress').innerHTML = `
+    <div class="dz-donut-wrap">
+      ${donutProgress(rate, { centerValue: `${rate}%`, centerLabel: 'resolved' })}
+    </div>
+    <div class="dz-donut-legend">
+      <div class="dz-donut-legend-item"><span class="dz-donut-legend-sq" style="background:var(--dz-accent)"></span><span class="dz-donut-legend-label">Resolved</span><span class="dz-donut-legend-val">${resolved}</span></div>
+      <div class="dz-donut-legend-item"><span class="dz-donut-legend-sq" style="background:var(--dz-surface-2)"></span><span class="dz-donut-legend-label">Unresolved</span><span class="dz-donut-legend-val">${total - resolved}</span></div>
+    </div>`;
+
+  const open = complaints.filter((c) => OPEN.includes(c.status));
+  const catColors = {
+    garbage: 'var(--dz-accent)', streetlight: 'var(--dz-violet)', water: 'var(--dz-sky)',
+    sewage: 'var(--dz-amber)', road: '#475569', other: 'var(--dz-rose)',
+  };
+  const catData = CATS.map((k) => ({
+    cat: k, label: CAT_LABEL[k],
+    value: open.filter((c) => c.category === k).length,
+    color: catColors[k],
+  })).filter((x) => x.value > 0).sort((a, b) => b.value - a.value);
+
+  if (!catData.length) {
+    document.getElementById('catChart').innerHTML = '<p style="text-align:center;padding:20px 0;color:var(--dz-ink-muted)">No open complaints</p>';
+  } else {
+    const max = Math.max(1, ...catData.map((d) => d.value));
+    document.getElementById('catChart').innerHTML = `<div class="dz-hbar-list">${catData.map((d) => `
+      <a class="dz-hbar-item" href="/queue.html?category=${d.cat}" data-cat="${d.cat}">
+        <span class="dz-hbar-label">${icon(CATEGORY_ICON[d.cat] || 'other')}${d.label}</span>
+        <span class="dz-hbar-track"><span class="dz-hbar-fill" style="width:${Math.round((d.value / max) * 100)}%;background:${d.color}"></span></span>
+        <span class="dz-hbar-val">${d.value}</span>
+      </a>`).join('')}</div>`;
+    mountIcons(document.getElementById('catChart'));
+  }
+}
+
+function renderActivityFeed() {
+  const events = [];
+  for (const c of complaints) {
+    if (!c.events) continue;
+    for (const e of c.events) events.push({ ...e, complaint: c });
+  }
+  events.sort((a, b) => new Date(b.at) - new Date(a.at));
+  const recent = events.slice(0, 6);
+
+  if (!recent.length) {
+    document.getElementById('activityFeed').innerHTML = '<p style="text-align:center;padding:20px 0;color:var(--dz-ink-muted)">No activity yet</p>';
     return;
   }
-  empty.hidden = true;
 
-  tbody.innerHTML = visible.map((c) => `
-    <tr tabindex="0" data-id="${esc(c.id)}" aria-label="Complaint ${esc(c.tracking_id)}">
-      <td class="id-cell" data-label="ID"><span class="mono small">${esc(c.tracking_id)}</span>${c.is_sample ? '<span class="sample-tag lat" title="Seeded demo data, not a real citizen complaint">sample</span>' : ''}</td>
-      <td data-label="Category"><span class="cat-cell">${icon(CATEGORY_ICON[c.category] || 'other')}${CAT_LABEL[c.category] || c.category}</span></td>
-      <td class="location-cell" data-label="Location">${esc(c.area ? c.area + ', ' : '')}${CITY_LABEL[c.city] || esc(c.city)}</td>
-      <td data-label="Department"><span class="dept-cell" title="${esc(c.department?.name || '')}">${esc(c.department?.name || '-')}</span></td>
-      <td data-label="Severity"><span class="sev-dot ${c.severity}"><span class="dot"></span>${c.severity}</span></td>
-      <td data-label="Status"><span class="status-chip ${esc(c.status)}"><span class="dot"></span>${esc(c.status).replace('_', ' ')}</span></td>
-      <td data-label="Age"><span class="small muted">${timeAgo(c.created_at)}</span></td>
-      <td aria-hidden="true"><span class="go-cell">&#8250;</span></td>
-    </tr>`).join('');
+  const feedHtml = recent.map((e) => {
+    const c = e.complaint;
+    const age = timeAgo(e.at);
+    const ageDays = (Date.now() - new Date(e.at).getTime()) / 86400000;
+    return `
+    <a class="dz-feed-item" href="/complaint.html?id=${esc(c.id)}">
+      <div class="dz-feed-avatar" style="background:${statusColor(e.to_status)}20;color:${statusColor(e.to_status)}">
+        ${statusIcon(e.to_status, 20)}
+      </div>
+      <div class="dz-feed-body">
+        <div class="dz-feed-line1">${esc(c.tracking_id)} → ${esc(e.to_status.replace(/_/g, ' '))}</div>
+        <div class="dz-feed-line2">
+          <span>${CAT_LABEL[c.category] || c.category}</span>
+          <span>·</span>
+          <span>${CITY_LABEL[c.city] || c.city}</span>
+          ${e.actor ? `<span>·</span><span>by ${esc(e.actor)}</span>` : ''}
+        </div>
+      </div>
+      <div class="dz-feed-time ${ageDays > 7 ? 'stale' : ''}">${age}</div>
+    </a>`;
+  }).join('');
 
-  tbody.querySelectorAll('tr').forEach((tr) => {
-    tr.addEventListener('click', () => (location.href = `/complaint.html?id=${encodeURIComponent(tr.dataset.id)}`));
-    tr.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); location.href = `/complaint.html?id=${encodeURIComponent(tr.dataset.id)}`; }
+  const feed = document.getElementById('activityFeed');
+  feed.innerHTML = `<div class="dz-feed">${feedHtml}</div>`;
+  mountIcons(feed);
+}
+
+// ---- Complaint map (Leaflet + OpenStreetMap) ----
+let mapInstance = null;
+let markerLayer = null;
+
+function renderMap() {
+  const container = document.getElementById('complaintMap');
+  if (!container) return;
+  if (typeof L === 'undefined') {
+    container.innerHTML = '<p style="text-align:center;padding:40px 0;color:var(--dz-ink-muted)">Map unavailable (offline)</p>';
+    return;
+  }
+  const geoComplaints = complaints.filter((c) => c.location && c.location.lat != null);
+  if (!geoComplaints.length) {
+    container.innerHTML = '<p style="text-align:center;padding:40px 0;color:var(--dz-ink-muted)">No GPS-tagged complaints yet</p>';
+    return;
+  }
+  if (!mapInstance) {
+    mapInstance = L.map('complaintMap').setView([31.5, 74.3], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap', maxZoom: 19,
+    }).addTo(mapInstance);
+    markerLayer = L.layerGroup().addTo(mapInstance);
+  }
+  markerLayer.clearLayers();
+  for (const c of geoComplaints) {
+    const marker = L.circleMarker([c.location.lat, c.location.lng], {
+      radius: 8, fillColor: statusColor(c.status), color: '#fff', weight: 2, fillOpacity: 0.85,
     });
-  });
-
-  // Pagination / load more
-  if (rows.length > visibleCount) {
-    loadMoreWrap.hidden = false;
-    document.getElementById('rowCount').textContent = `Showing ${visibleCount} of ${rows.length}`;
-  } else {
-    loadMoreWrap.hidden = true;
+    marker.bindPopup(`<strong>${esc(c.tracking_id)}</strong><br>${esc(CAT_LABEL[c.category] || c.category)}<br>${esc(c.area || '')}, ${esc(CITY_LABEL[c.city] || c.city)}<br><a href="/complaint.html?id=${encodeURIComponent(c.id)}">View detail</a>`);
+    markerLayer.addLayer(marker);
   }
 }
 
-document.getElementById('loadMoreBtn')?.addEventListener('click', () => {
-  visibleCount += PAGE_SIZE;
-  applyFilters();
-});
-
-['fSearch', 'fCity', 'fCat', 'fSev', 'fStatus'].forEach((id) =>
-  document.getElementById(id).addEventListener('input', () => {
-    visibleCount = PAGE_SIZE;
-    if (document.getElementById('fStatus').value) syncNav(ALL_NAV_STATUSES.includes(document.getElementById('fStatus').value) ? document.getElementById('fStatus').value : null);
-    else syncNav(null);
-    applyFilters();
-  }));
-
-document.getElementById('attentionChip').addEventListener('click', (e) => {
-  attention = !attention;
-  e.currentTarget.setAttribute('aria-pressed', String(attention));
-  syncNav(attention ? 'attention' : null);
-  applyFilters();
-});
-
-document.querySelectorAll('#sideNav .side-link').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    const nav = btn.dataset.nav;
-    if (nav === 'all') {
-      attention = false;
-      document.getElementById('fStatus').value = '';
-      document.getElementById('attentionChip').setAttribute('aria-pressed', 'false');
-    } else if (nav === 'attention') {
-      attention = true;
-      document.getElementById('fStatus').value = '';
-      document.getElementById('attentionChip').setAttribute('aria-pressed', 'true');
-    } else {
-      attention = false;
-      document.getElementById('fStatus').value = nav;
-      document.getElementById('attentionChip').setAttribute('aria-pressed', 'false');
-    }
-    syncNav(nav);
-    visibleCount = PAGE_SIZE;
-    applyFilters();
-    toggleSidebar(false);
-  });
-});
-
-// CSV Export
+// CSV Export (current full dataset for dashboard)
 document.getElementById('exportBtn')?.addEventListener('click', () => {
-  const rows = getFilteredRows();
-  if (!rows.length) { toast('No complaints to export', 'error'); return; }
+  if (!complaints.length) { toast('No complaints to export', 'error'); return; }
   const headers = ['Tracking ID', 'Status', 'Category', 'Severity', 'City', 'Area', 'Department', 'Anonymous', 'Citizen Name', 'Citizen Phone', 'Citizen Email', 'Created At', 'Sent At', 'Summary'];
   const csvRows = [headers.join(',')];
-  for (const c of rows) {
+  for (const c of complaints) {
     const vals = [
       c.tracking_id, c.status, c.category, c.severity, c.city, c.area || '',
       c.department?.name || '', c.is_anonymous ? 'Yes' : 'No',

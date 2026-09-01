@@ -194,15 +194,20 @@ imageInput.addEventListener('change', async () => {
   imageError.hidden = true;
   const files = Array.from(imageInput.files);
   imageInput.value = '';
-  if (selectedImages.length + files.length > 5) {
+  const room = 5 - selectedImages.length;
+  if (room <= 0) {
     imageError.textContent = t('img_max');
     imageError.hidden = false;
     return;
   }
+  // Add as many as fit; warn (non-blocking) about the rest instead of rejecting all.
+  let added = 0;
   for (const f of files) {
+    if (added >= room) { imageError.textContent = t('img_max'); imageError.hidden = false; break; }
     if (f.size > 5 * 1024 * 1024) { imageError.textContent = t('img_too_large'); imageError.hidden = false; continue; }
     const base64 = await resizeImage(f);
     selectedImages.push({ name: f.name, data: base64 });
+    added++;
   }
   renderPreviews();
 });
@@ -289,15 +294,19 @@ if (dropzone) {
     const files = Array.from(e.dataTransfer.files).filter(f => f.type === 'image/jpeg' || f.type === 'image/png');
     if (!files.length) return;
     imageError.hidden = true;
-    if (selectedImages.length + files.length > 5) {
+    const room = 5 - selectedImages.length;
+    if (room <= 0) {
       imageError.textContent = t('img_max');
       imageError.hidden = false;
       return;
     }
+    let added = 0;
     for (const f of files) {
+      if (added >= room) { imageError.textContent = t('img_max'); imageError.hidden = false; break; }
       if (f.size > 5 * 1024 * 1024) { imageError.textContent = t('img_too_large'); imageError.hidden = false; continue; }
       const base64 = await resizeImage(f);
       selectedImages.push({ name: f.name, data: base64 });
+      added++;
     }
     renderPreviews();
   });
@@ -415,7 +424,7 @@ form.addEventListener('submit', async (e) => {
   e.preventDefault();
   clearFieldErrors();
 
-  if (city.state.other || !city.state.value) { showErrors(null, { city: t('city_label') + '?' }); return; }
+  if (city.state.other || !city.state.value) { showErrors(null, { city: t('city_required') }); return; }
 
   const email = idEmail.value.trim();
   const phone = idPhone.value.trim();
@@ -443,6 +452,11 @@ form.addEventListener('submit', async (e) => {
       }),
     });
     localStorage.removeItem(DRAFT_KEY);
+    if (data.images_dropped) {
+      // Server dropped oversized decoded images the client's pre-check missed.
+      // Surface it before navigating so the citizen isn't surprised on review.
+      import('./shared.js').then(({ toast }) => toast(`${data.images_dropped} image(s) were too large and were not attached.`, 'error'));
+    }
     location.href = `/review.html?id=${encodeURIComponent(data.complaint.id)}`;
   } catch (err) {
     stopProgress();

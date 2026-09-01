@@ -101,7 +101,7 @@ export async function copyText(text) {
 // ---------------------------------------------------------------------------
 // formatting
 // ---------------------------------------------------------------------------
-const LOCALES = { en: 'en-GB', ur: 'en-GB' };
+const LOCALES = { en: 'en-GB', ur: 'ur-PK' };
 export const fmtDateTime = (iso) => iso
   ? new Date(iso).toLocaleString(LOCALES[lang()], { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   : '-';
@@ -241,3 +241,200 @@ export const qs = (name) => new URLSearchParams(location.search).get(name);
 
 export const isPhoneLike = (s) => /^[0-9+\-\s()]{7,20}$/.test(String(s || '').trim());
 export const isEmailLike = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || '').trim());
+
+// ---------------------------------------------------------------------------
+// Status shape system — shape + color encoding for all 8 statuses.
+// Each status has a distinct SVG shape so it's recognizable without color.
+// ---------------------------------------------------------------------------
+const STATUS_SHAPES = {
+  draft: (s) => `<circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/>`,
+  needs_review: (s) => `<path d="M12 4 L20 19 L4 19 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>`,
+  sent: (s) => `<rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor"/>`,
+  send_failed: (s) => `<path d="M6 6 L18 18 M18 6 L6 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>`,
+  acknowledged: (s) => `<path d="M12 3 A9 9 0 0 1 12 21 Z" fill="currentColor"/><path d="M12 3 A9 9 0 0 0 12 21 Z" fill="none" stroke="currentColor" stroke-width="2"/>`,
+  in_progress: (s) => `<path d="M12 3 A9 9 0 0 1 21 12 L12 12 Z" fill="currentColor"/><path d="M12 3 A9 9 0 1 0 21 12 L12 12 Z" fill="none" stroke="currentColor" stroke-width="2"/>`,
+  resolved: (s) => `<path d="M4 12.5 L10 18 L20 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`,
+  rejected: (s) => `<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 6 L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>`,
+};
+
+const STATUS_COLORS = {
+  draft: '#475569', needs_review: '#B45309', sent: '#1D4ED8',
+  send_failed: '#B91C1C', acknowledged: '#0E6B5C', in_progress: '#6D28D9',
+  resolved: '#15803D', rejected: '#B91C1C',
+};
+
+const STATUS_LABELS = {
+  draft: 'Draft', needs_review: 'Needs review', sent: 'Sent',
+  send_failed: 'Send failed', acknowledged: 'Acknowledged', in_progress: 'In progress',
+  resolved: 'Resolved', rejected: 'Rejected',
+};
+
+export function statusIcon(status, size = 24) {
+  const shape = STATUS_SHAPES[status] || STATUS_SHAPES.draft;
+  const color = STATUS_COLORS[status] || '#475569';
+  return `<span class="status-shape" style="color:${color}"><svg width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">${shape(size)}</svg></span>`;
+}
+
+export function statusPill(status) {
+  const label = (STATUS_LABELS[status] || status).replace(/_/g, ' ');
+  return `<span class="status-pill ${status}">${statusIcon(status, 12)}${label}</span>`;
+}
+
+export function statusLabel(status) {
+  return STATUS_LABELS[status] || status;
+}
+
+export function statusColor(status) {
+  return STATUS_COLORS[status] || '#475569';
+}
+
+// ---------------------------------------------------------------------------
+// Severity meter — 4-segment bar (shape + fill, not color alone)
+// ---------------------------------------------------------------------------
+export function severityMeter(level, withLabel = false) {
+  const segs = level === 'high' ? 4 : level === 'medium' ? 3 : 1;
+  let html = '<span class="sev-meter">';
+  for (let i = 0; i < 4; i++) html += `<span class="seg${i < segs ? ` on ${level}` : ''}"></span>`;
+  html += '</span>';
+  if (withLabel) html += `<span class="sev-meter-label" style="color:var(--sev-${level === 'high' ? 'high' : level === 'medium' ? 'med' : 'low'})">${level}</span>`;
+  return html;
+}
+
+// ---------------------------------------------------------------------------
+// Chart primitives — pure SVG, no library. Each returns an SVG string.
+// ---------------------------------------------------------------------------
+
+// Donut chart: data = [{ label, value, color }], returns SVG + legend HTML
+export function donutChart(data, { size = 140, thickness = 22, centerLabel = '', centerValue = '' } = {}) {
+  const total = data.reduce((s, d) => s + d.value, 0);
+  if (total === 0) return `<div class="donut-wrap"><svg width="${size}" height="${size}"><circle cx="${size/2}" cy="${size/2}" r="${(size-thickness)/2}" fill="none" stroke="var(--border-light)" stroke-width="${thickness}"/></svg></div>`;
+  const r = (size - thickness) / 2;
+  const cx = size / 2, cy = size / 2;
+  const circumference = 2 * Math.PI * r;
+  let offset = 0;
+  const segments = data.filter((d) => d.value > 0).map((d) => {
+    const frac = d.value / total;
+    const len = frac * circumference;
+    const dash = `${len} ${circumference - len}`;
+    const seg = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${d.color}" stroke-width="${thickness}" stroke-dasharray="${dash}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${cx} ${cy})" style="transition: stroke-dasharray .4s ease"/>`;
+    offset += len;
+    return seg;
+  }).join('');
+  const legend = data.filter((d) => d.value > 0).map((d) =>
+    `<span class="chart-legend-item" data-status="${d.status || ''}"><span class="chart-legend-sq" style="background:${d.color}"></span>${d.label}<span class="chart-legend-val">${d.value}</span></span>`
+  ).join('');
+  return `<div class="donut-wrap"><svg width="${size}" height="${size}" role="img" aria-label="Status distribution: ${data.map(d => `${d.label} ${d.value}`).join(', ')}">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--border-light)" stroke-width="${thickness}"/>
+    ${segments}
+    ${centerValue ? `<text class="donut-center" x="${cx}" y="${cy - 8}">${centerValue}</text>` : ''}
+    ${centerLabel ? `<text class="donut-center-label" x="${cx}" y="${cy + 12}">${centerLabel}</text>` : ''}
+  </svg></div><div class="chart-legend">${legend}</div>`;
+}
+
+// Horizontal bar chart: data = [{ label, value, color }]
+export function hbarChart(data, { maxVal } = {}) {
+  const max = maxVal || Math.max(1, ...data.map((d) => d.value));
+  if (!data.length) return '<p class="small muted" style="text-align:center;padding:20px 0">No data</p>';
+  const bars = data.map((d) => `
+    <div class="hbar-item" data-cat="${d.cat || ''}">
+      <span class="hbar-label">${d.label}</span>
+      <span class="hbar-track"><span class="hbar-fill" style="width:${Math.round((d.value / max) * 100)}%;background:${d.color}"></span></span>
+      <span class="hbar-val">${d.value}</span>
+    </div>`).join('');
+  return `<div class="hbar-list">${bars}</div>`;
+}
+
+// Area chart: data = [{ date, filed, resolved }], 14-day window
+export function areaChart(data, { width = 280, height = 100 } = {}) {
+  if (!data.length) return '<p class="small muted" style="text-align:center;padding:20px 0">No data</p>';
+  const max = Math.max(1, ...data.map((d) => Math.max(d.filed, d.resolved)));
+  const pad = 8;
+  const w = width - pad * 2, h = height - pad * 2;
+  const stepX = data.length > 1 ? w / (data.length - 1) : 0;
+  const y = (v) => pad + h - (v / max) * h;
+  const x = (i) => pad + i * stepX;
+  const filedPts = data.map((d, i) => `${x(i)},${y(d.filed)}`).join(' ');
+  const resolvedPts = data.map((d, i) => `${x(i)},${y(d.resolved)}`).join(' ');
+  const filedArea = `${pad},${pad + h} ${filedPts} ${pad + w},${pad + h}`;
+  return `<div class="area-chart-wrap"><svg width="${width}" height="${height}" role="img" aria-label="Filed vs resolved, last 14 days">
+    <polygon points="${filedArea}" fill="rgba(27,43,68,.08)"/>
+    <polyline points="${filedPts}" fill="none" stroke="var(--chart-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <polyline points="${resolvedPts}" fill="none" stroke="var(--chart-1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg></div>`;
+}
+
+// Sparkline: data = [number, ...], tiny line for KPI tiles
+export function sparkline(data, { width = 80, height = 24, color = 'var(--chart-1)' } = {}) {
+  if (!data.length) return '';
+  const max = Math.max(1, ...data), min = Math.min(0, ...data);
+  const range = max - min || 1;
+  const stepX = data.length > 1 ? width / (data.length - 1) : 0;
+  const pts = data.map((v, i) => `${i * stepX},${height - ((v - min) / range) * height}`).join(' ');
+  return `<div class="kpi-spark"><svg width="${width}" height="${height}"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Donezo-style chart helpers
+// ---------------------------------------------------------------------------
+
+// Donut progress chart: single value (0-100) with a label in the center
+export function donutProgress(percent, { size = 140, thickness = 16, color = 'var(--dz-accent)', trackColor = 'var(--dz-surface-2)', centerValue, centerLabel } = {}) {
+  const r = (size - thickness) / 2;
+  const cx = size / 2, cy = size / 2;
+  const circumference = 2 * Math.PI * r;
+  const fill = Math.min(100, Math.max(0, percent));
+  const dash = (fill / 100) * circumference;
+  return `<svg class="dz-donut-svg" width="${size}" height="${size}" role="img" aria-label="${centerLabel || 'progress'}: ${percent}%">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${trackColor}" stroke-width="${thickness}"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${thickness}"
+      stroke-dasharray="${dash} ${circumference - dash}"
+      stroke-linecap="round"
+      transform="rotate(-90 ${cx} ${cy})"
+      style="transition: stroke-dasharray .5s ease"/>
+    ${centerValue ? `<text class="dz-donut-center-val" x="${cx}" y="${cy - 6}">${centerValue}</text>` : ''}
+    ${centerLabel ? `<text class="dz-donut-center-label" x="${cx}" y="${cy + 14}">${centerLabel}</text>` : ''}
+  </svg>`;
+}
+
+// 7-day bar chart (Donezo style): data = [{ day, filed, resolved }]
+export function barChart7d(data) {
+  if (!data.length) return '<p style="text-align:center;padding:20px 0;color:var(--dz-ink-muted)">No data</p>';
+  const max = Math.max(1, ...data.map((d) => Math.max(d.filed, d.resolved)));
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const cols = data.map((d) => {
+    const filedH = (d.filed / max) * 100;
+    const resolvedH = (d.resolved / max) * 100;
+    const isToday = d.date && new Date(d.date).toDateString() === today.toDateString();
+    const isZero = d.filed === 0 && d.resolved === 0;
+    return `
+    <div class="dz-bar-col ${isToday ? 'today' : ''} ${isZero ? 'zero' : ''}">
+      <div class="dz-bar-stack">
+        <div class="dz-bar-tooltip">${d.filed} filed · ${d.resolved} resolved</div>
+        ${d.filed > 0 ? `<div class="dz-bar-fill filed" style="height:${filedH}%"></div>` : ''}
+        ${d.resolved > 0 ? `<div class="dz-bar-fill resolved" style="height:${resolvedH}%"></div>` : ''}
+      </div>
+      <div class="dz-bar-label">${d.day}</div>
+    </div>`;
+  }).join('');
+  return `<div class="dz-bar-chart">${cols}</div>
+    <div class="dz-chart-legend">
+      <span class="dz-chart-legend-item"><span class="dz-chart-legend-sq filed"></span>Filed</span>
+      <span class="dz-chart-legend-item"><span class="dz-chart-legend-sq resolved"></span>Resolved</span>
+    </div>`;
+}
+
+// Donezo severity meter (4 dots)
+export function sevDots(level) {
+  const segs = level === 'high' ? 4 : level === 'medium' ? 3 : 1;
+  let html = '<span class="dz-sev-meter">';
+  for (let i = 0; i < 4; i++) html += `<span class="seg${i < segs ? ` on ${level}` : ''}"></span>`;
+  html += '</span>';
+  return html;
+}
+
+// Donezo status pill
+export function dzStatusPill(status) {
+  const label = (STATUS_LABELS[status] || status).replace(/_/g, ' ');
+  return `<span class="dz-status-pill ${status}">${statusIcon(status, 12)}${label}</span>`;
+}
