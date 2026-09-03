@@ -4,8 +4,8 @@
 import { api, esc, icon, CATEGORY_ICON, mountIcons, requireOfficial, timeAgo, toast, statusIcon, statusLabel, dzStatusPill, sevDots } from './shared.js';
 import { CAT_LABEL, CITY_LABEL } from './constants.js';
 
-const ATTENTION = ['needs_review', 'send_failed'];
-const ALL_NAV_STATUSES = ['draft', 'needs_review', 'sent', 'send_failed', 'acknowledged', 'in_progress', 'resolved', 'rejected'];
+const ATTENTION = ['needs_review', 'send_failed', 'pending_approval'];
+const ALL_NAV_STATUSES = ['draft', 'needs_review', 'pending_approval', 'sent', 'send_failed', 'acknowledged', 'in_progress', 'resolved', 'rejected'];
 const PAGE_SIZE = 25;
 const SEV_ORDER = { high: 3, medium: 2, low: 1 };
 

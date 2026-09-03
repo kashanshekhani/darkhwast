@@ -4,7 +4,7 @@
 import { api, esc, icon, CATEGORY_ICON, mountIcons, requireOfficial, timeAgo, toast, statusIcon, statusColor, donutProgress, barChart7d } from './shared.js';
 import { CATS, CAT_LABEL, CITY_LABEL } from './constants.js';
 
-const OPEN = ['sent', 'acknowledged', 'in_progress', 'send_failed', 'needs_review', 'draft'];
+const OPEN = ['sent', 'acknowledged', 'in_progress', 'send_failed', 'needs_review', 'pending_approval', 'draft'];
 
 if (!requireOfficial()) throw new Error('redirecting to login');
 
@@ -99,7 +99,7 @@ document.getElementById('retryBtn')?.addEventListener('click', load);
 
 function navCounts() {
   document.getElementById('cnt-all').textContent = complaints.length;
-  for (const s of ['draft', 'needs_review', 'sent', 'send_failed', 'acknowledged', 'in_progress', 'resolved', 'rejected']) {
+  for (const s of ['draft', 'needs_review', 'pending_approval', 'sent', 'send_failed', 'acknowledged', 'in_progress', 'resolved', 'rejected']) {
     const el = document.getElementById(`cnt-${s}`);
     if (el) el.textContent = complaints.filter((c) => c.status === s).length;
   }
@@ -110,7 +110,7 @@ function renderGreeting() {
   const part = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
   document.getElementById('greetingTitle').textContent = `Good ${part}, ${official.name?.split(' ')[0] || 'Official'}`;
   const open = complaints.filter((c) => OPEN.includes(c.status)).length;
-  const att = complaints.filter((c) => ['needs_review', 'send_failed'].includes(c.status)).length;
+  const att = complaints.filter((c) => ['needs_review', 'send_failed', 'pending_approval'].includes(c.status)).length;
   document.getElementById('greetingSub').textContent = att > 0
     ? `${att} complaint${att !== 1 ? 's' : ''} need attention · ${open} open total`
     : `${open} complaint${open !== 1 ? 's' : ''} open · all clear`;
@@ -118,7 +118,7 @@ function renderGreeting() {
 
 function renderKPIs() {
   const open = complaints.filter((c) => OPEN.includes(c.status)).length;
-  const attCount = complaints.filter((c) => ['needs_review', 'send_failed'].includes(c.status)).length;
+  const attCount = complaints.filter((c) => ['needs_review', 'send_failed', 'pending_approval'].includes(c.status)).length;
   const resolved = complaints.filter((c) => c.status === 'resolved').length;
   const total = complaints.length;
   const resolutionRate = total > 0 ? Math.round((resolved / total) * 100) : 0;

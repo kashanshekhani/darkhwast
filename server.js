@@ -305,7 +305,7 @@ app.post('/api/complaints', async (req, res) => {
       location_description: result.location_description,
       ai_confidence: result.confidence, classification_source: result.source, classification_raw: result.raw,
       department_id: dept ? dept.id : null, routing_rationale: result.routing_rationale,
-      status: dept && result.confidence >= CONFIDENCE_THRESHOLD ? 'draft' : 'needs_review',
+      status: 'needs_review',
       is_anonymous: anonymous !== false, citizen_name: null,
       citizen_phone: String(phone).trim() || null,
       citizen_email: String(email).trim() || null,
@@ -314,10 +314,60 @@ app.post('/api/complaints', async (req, res) => {
       escalation_level: 0, escalated_at: null,
       photo_assessment: photoAssessment,
     };
+
+    // Severity-based dispatch policy:
+    // - HIGH severity + dept found + confidence OK → auto-send email immediately
+    // - LOW/MEDIUM severity + dept found + confidence OK → pending_approval (admin reviews)
+    // - No dept or low confidence → needs_review (citizen corrects category on review page)
+    const canRoute = dept && result.confidence >= CONFIDENCE_THRESHOLD;
+    if (canRoute && result.severity === 'high') {
+      c.status = 'draft';  // briefly draft, then auto-send below
+    } else if (canRoute) {
+      c.status = 'pending_approval';
+    } else {
+      c.status = 'needs_review';
+    }
+
     c.draft_english = buildLetter({ complaint: c, dept, identity: null });
     db.complaints.push(c);
     addEvent(c.id, null, c.status, 'system', `Complaint created and classified (${result.source})`);
     if (!dept) addEvent(c.id, null, c.status, 'system', 'No authority found in knowledge base for this city and category; operator review required');
+
+    // Auto-dispatch for high severity: send the email immediately so the
+    // department is notified without waiting for citizen/admin action.
+    if (canRoute && result.severity === 'high') {
+      const identity = { anonymous: anonymous !== false, name: '', phone: c.citizen_phone, email: c.citizen_email };
+      const letter = buildLetter({ complaint: c, dept, identity });
+      const subject = buildSubject(c);
+      let dispatch = { ok: false, simulated: mailMode() !== 'smtp', message_id: null, error: 'not attempted' };
+      for (let attempt = 1; attempt <= 2 && !dispatch.ok; attempt++) {
+        try {
+          dispatch = await dispatchComplaintEmail({ to: dept.email, subject, text: letter });
+        } catch (e) {
+          console.error(`[mail] auto-dispatch attempt ${attempt} failed:`, e.message);
+          dispatch = { ok: false, simulated: mailMode() !== 'smtp', message_id: null, error: e.message };
+        }
+      }
+      const prevStatus = c.status;
+      c.letter_final = letter;
+      c.is_anonymous = identity.anonymous;
+      if (identity.anonymous) { c.citizen_phone = null; c.citizen_email = null; }
+      c.dispatch_log = [{ at: nowIso(), to: dept.email, subject, simulated: dispatch.simulated, message_id: dispatch.message_id, ok: dispatch.ok }];
+      c.status = dispatch.ok ? 'sent' : 'send_failed';
+      if (dispatch.ok) {
+        c.sent_at = nowIso();
+        if (c.citizen_email) {
+          dispatchCitizenConfirmationEmail({
+            to: c.citizen_email,
+            complaint: { tracking_id: c.tracking_id, category: c.category, created_at: c.created_at, department: dept },
+          }).catch(console.error);
+        }
+      }
+      addEvent(c.id, prevStatus, c.status, 'system', dispatch.ok
+        ? 'Auto-dispatched to department due to HIGH severity — no admin approval needed'
+        : `Auto-dispatch failed: ${dispatch.error}`);
+    }
+
     saveDb();
     broadcastEvent('complaint:new', { complaintId: c.id, trackingId: c.tracking_id, status: c.status });
     const resp = { complaint: publicView(c) };
@@ -362,7 +412,9 @@ app.patch('/api/complaints/:id/category', (req, res) => {
   res.json({ complaint: publicView(c) });
 });
 
-// citizen: send (FR-5)
+// citizen: send (FR-5) — severity-based routing:
+//   HIGH severity → dispatch email immediately (status → sent/send_failed)
+//   LOW/MEDIUM    → submit for admin approval (status → pending_approval)
 app.post('/api/complaints/:id/send', async (req, res) => {
   try {
     if (!sendRL.check(ipOf(req))) return res.status(429).json({ error: 'Too many send attempts. Please try again later.' });
@@ -388,8 +440,22 @@ app.post('/api/complaints/:id/send', async (req, res) => {
       letter = buildLetter({ complaint: c, dept, identity });
     }
 
+    // LOW/MEDIUM severity: don't send email, route to admin for approval
+    if (c.severity !== 'high') {
+      const prevStatus = c.status;
+      c.is_anonymous = identity.anonymous;
+      c.citizen_name = identity.anonymous ? null : identity.name;
+      if (identity.anonymous) { c.citizen_phone = null; c.citizen_email = null; }
+      c.letter_final = letter;
+      c.status = 'pending_approval';
+      addEvent(c.id, prevStatus, c.status, 'citizen', 'Submitted for admin approval (low/medium severity)');
+      saveDb();
+      broadcastEvent('complaint:updated', { complaintId: c.id, trackingId: c.tracking_id, status: c.status });
+      return res.json({ complaint: publicView(c) });
+    }
+
+    // HIGH severity: dispatch email immediately
     const subject = buildSubject(c);
-    // FR-5: on failure, retry once before surfacing send_failed to operators.
     let dispatch = { ok: false, simulated: mailMode() !== 'smtp', message_id: null, error: 'not attempted' };
     for (let attempt = 1; attempt <= 2 && !dispatch.ok; attempt++) {
       try {
@@ -403,26 +469,20 @@ app.post('/api/complaints/:id/send', async (req, res) => {
     const prevStatus = c.status;
     c.is_anonymous = identity.anonymous;
     c.citizen_name = identity.anonymous ? null : identity.name;
-    // Anonymous sends never retain contact details: the citizen was told nothing
-    // personal is attached, so the stored record must match that promise.
-    if (identity.anonymous) {
-      c.citizen_phone = null;
-      c.citizen_email = null;
-    }
+    if (identity.anonymous) { c.citizen_phone = null; c.citizen_email = null; }
     c.letter_final = letter;
     c.dispatch_log = [...(c.dispatch_log || []), { at: nowIso(), to: dept.email, subject, simulated: dispatch.simulated, message_id: dispatch.message_id, ok: dispatch.ok }];
     c.status = dispatch.ok ? 'sent' : 'send_failed';
     if (dispatch.ok) {
       c.sent_at = nowIso();
       if (c.citizen_email) {
-        // fire and forget citizen confirmation — pass only the fields the template needs.
         dispatchCitizenConfirmationEmail({
           to: c.citizen_email,
           complaint: { tracking_id: c.tracking_id, category: c.category, created_at: c.created_at, department: dept },
         }).catch(console.error);
       }
     }
-    addEvent(c.id, prevStatus, c.status, 'citizen', dispatch.ok ? 'Complaint approved and sent by citizen' : 'Delivery failed; system will keep the complaint and retry via operator');
+    addEvent(c.id, prevStatus, c.status, 'citizen', dispatch.ok ? 'Complaint approved and sent by citizen (high severity)' : 'Delivery failed; system will keep the complaint and retry via operator');
     saveDb();
     broadcastEvent('complaint:updated', { complaintId: c.id, trackingId: c.tracking_id, status: c.status });
     res.json({ complaint: publicView(c) });
@@ -507,6 +567,66 @@ app.patch('/api/official/complaints/:id/status', auth, (req, res) => {
   saveDb();
   broadcastEvent('complaint:updated', { complaintId: c.id, trackingId: c.tracking_id, status: c.status, toStatus: to_status });
   res.json({ complaint: { ...officialView(c), events: eventsOf(c.id) } });
+});
+
+// official: approve & send a pending_approval complaint (one-click dispatch)
+app.post('/api/official/complaints/:id/approve', auth, async (req, res) => {
+  try {
+    if (req.official.role === 'viewer') return res.status(403).json({ error: 'Viewer accounts cannot approve. Sign in as an operator.' });
+    const c = findComplaint(req.params.id);
+    if (!c) return res.status(404).json({ error: 'Complaint not found.' });
+    if (c.status !== 'pending_approval') return res.status(409).json({ error: 'Only complaints pending approval can be approved.' });
+    const dept = deptOf(c);
+    if (!dept) return res.status(409).json({ error: 'No department routed for this complaint.' });
+
+    const { anonymous = c.is_anonymous, name = c.citizen_name || '', letter_text = '' } = req.body || {};
+    const identity = { anonymous: Boolean(anonymous), name: String(name || '').trim(), phone: c.citizen_phone, email: c.citizen_email };
+    let letter;
+    if (letter_text) {
+      if (String(letter_text).length > 8000) return res.status(400).json({ error: 'The edited letter is too long.' });
+      if (!String(letter_text).includes(c.tracking_id)) return res.status(400).json({ error: 'The letter must keep its tracking reference.' });
+      letter = String(letter_text);
+    } else {
+      letter = buildLetter({ complaint: c, dept, identity });
+    }
+
+    const subject = buildSubject(c);
+    let dispatch = { ok: false, simulated: mailMode() !== 'smtp', message_id: null, error: 'not attempted' };
+    for (let attempt = 1; attempt <= 2 && !dispatch.ok; attempt++) {
+      try {
+        dispatch = await dispatchComplaintEmail({ to: dept.email, subject, text: letter });
+      } catch (e) {
+        console.error(`[mail] approve dispatch attempt ${attempt} failed:`, e.message);
+        dispatch = { ok: false, simulated: mailMode() !== 'smtp', message_id: null, error: e.message };
+      }
+    }
+
+    const prevStatus = c.status;
+    c.is_anonymous = identity.anonymous;
+    c.citizen_name = identity.anonymous ? null : identity.name;
+    if (identity.anonymous) { c.citizen_phone = null; c.citizen_email = null; }
+    c.letter_final = letter;
+    c.dispatch_log = [...(c.dispatch_log || []), { at: nowIso(), to: dept.email, subject, simulated: dispatch.simulated, message_id: dispatch.message_id, ok: dispatch.ok }];
+    c.status = dispatch.ok ? 'sent' : 'send_failed';
+    if (dispatch.ok) {
+      c.sent_at = nowIso();
+      if (c.citizen_email) {
+        dispatchCitizenConfirmationEmail({
+          to: c.citizen_email,
+          complaint: { tracking_id: c.tracking_id, category: c.category, created_at: c.created_at, department: dept },
+        }).catch(console.error);
+      }
+    }
+    addEvent(c.id, prevStatus, c.status, 'official', dispatch.ok
+      ? `Approved and sent by ${req.official.name}`
+      : `Approval dispatch failed: ${dispatch.error}`);
+    saveDb();
+    broadcastEvent('complaint:updated', { complaintId: c.id, trackingId: c.tracking_id, status: c.status });
+    res.json({ complaint: { ...officialView(c), events: eventsOf(c.id) } });
+  } catch (e) {
+    console.error('[api] approve failed:', e);
+    res.status(500).json({ error: 'Something went wrong while approving.' });
+  }
 });
 
 // official: re-send a send_failed complaint (FR-5, Flow F)

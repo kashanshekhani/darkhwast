@@ -249,6 +249,7 @@ export const isEmailLike = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || 
 const STATUS_SHAPES = {
   draft: (s) => `<circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/>`,
   needs_review: (s) => `<path d="M12 4 L20 19 L4 19 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>`,
+  pending_approval: (s) => `<circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 8 L12 12 L15 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>`,
   sent: (s) => `<rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor"/>`,
   send_failed: (s) => `<path d="M6 6 L18 18 M18 6 L6 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>`,
   acknowledged: (s) => `<path d="M12 3 A9 9 0 0 1 12 21 Z" fill="currentColor"/><path d="M12 3 A9 9 0 0 0 12 21 Z" fill="none" stroke="currentColor" stroke-width="2"/>`,
@@ -258,13 +259,13 @@ const STATUS_SHAPES = {
 };
 
 const STATUS_COLORS = {
-  draft: '#475569', needs_review: '#B45309', sent: '#1D4ED8',
+  draft: '#475569', needs_review: '#B45309', pending_approval: '#7C3AED', sent: '#1D4ED8',
   send_failed: '#B91C1C', acknowledged: '#0E6B5C', in_progress: '#6D28D9',
   resolved: '#15803D', rejected: '#B91C1C',
 };
 
 const STATUS_LABELS = {
-  draft: 'Draft', needs_review: 'Needs review', sent: 'Sent',
+  draft: 'Draft', needs_review: 'Needs review', pending_approval: 'Pending approval', sent: 'Sent',
   send_failed: 'Send failed', acknowledged: 'Acknowledged', in_progress: 'In progress',
   resolved: 'Resolved', rejected: 'Rejected',
 };
