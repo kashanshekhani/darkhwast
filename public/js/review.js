@@ -3,9 +3,10 @@
 // Category correction chips, edit-letter mode, anonymous toggle, confirm modal.
 
 import { initLang, t, tv } from './i18n.js';
-import { api, bindLangToggle, esc, icon, CATEGORY_ICON, initOfflineBanner, mountIcons, sealSvg, toast, qs, isPhoneLike, isEmailLike } from './shared.js';
+import { api, bindLangToggle, esc, icon, CATEGORY_ICON, initOfflineBanner, mountIcons, mountCommunityNav, sealSvg, toast, qs, isPhoneLike, isEmailLike } from './shared.js';
 
 initLang();
+mountCommunityNav();
 bindLangToggle(() => complaint && render(complaint));
 initOfflineBanner();
 

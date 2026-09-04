@@ -1,7 +1,7 @@
 // Shared client helpers: icons, API wrapper, toasts, searchable city select,
 // offline banner, copy-with-announcement, date formatting, dashboard auth.
 
-import { t, lang, setLang } from './i18n.js';
+import { t, tv, lang, setLang } from './i18n.js';
 import { CITIES } from './constants.js';
 
 // language toggle (citizen pages); pages can register a re-render for
@@ -39,6 +39,11 @@ export const ICONS = {
   file: P('<path d="M6 2h8l4 4v16H6V2z"/><path d="M14 2v4h4"/>'),
   inbox: P('<path d="M3 12h5l2 3h4l2-3h5"/><path d="M5 5h14l2 7v7H3v-7l2-7z"/>'),
   shield: P('<path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3z"/>'),
+  // community platform icons (stroke set, same 24x24 grid)
+  support: P('<path d="M7 10v11"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H7v-11l3.55-7.11A2.31 2.31 0 0 1 12 3a3.13 3.13 0 0 1 3 3.88Z"/>'),
+  comment: P('<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>'),
+  pin: P('<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>'),
+  photo: P('<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>'),
 };
 export const icon = (name) => ICONS[name] || ICONS.other;
 
@@ -60,7 +65,11 @@ export const sealSvg = () => `
 // ---------------------------------------------------------------------------
 export async function api(path, opts = {}) {
   const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
-  const token = sessionStorage.getItem('dk_token');
+  // official pages send dk_token (default); community pages pass auth:'citizen'
+  // to send the citizen token instead — the two auth systems stay separate.
+  const token = opts.auth === 'citizen'
+    ? sessionStorage.getItem('dk_user_token')
+    : sessionStorage.getItem('dk_token');
   if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(path, { ...opts, headers });
   let data = null;
@@ -224,6 +233,144 @@ export function requireOfficial() {
   return token;
 }
 
+// citizen (community platform) auth guard — separate session key dk_user_token
+export function requireCitizen() {
+  const token = sessionStorage.getItem('dk_user_token');
+  if (!token) { location.href = '/signin.html'; return null; }
+  return token;
+}
+
+export const citizenToken = () => sessionStorage.getItem('dk_user_token');
+
+export const citizenUser = () => {
+  try { return JSON.parse(sessionStorage.getItem('dk_user') || 'null'); } catch { return null; }
+};
+
+export function setCitizenSession(token, user) {
+  sessionStorage.setItem('dk_user_token', token);
+  sessionStorage.setItem('dk_user', JSON.stringify(user));
+}
+
+export function clearCitizenSession() {
+  sessionStorage.removeItem('dk_user_token');
+  sessionStorage.removeItem('dk_user');
+}
+
+// Renders the new premium sidebar for the user portal
+export function mountCommunityNav(active) {
+  const container = document.getElementById('userSidebarContainer');
+  if (!container) return;
+  const authed = Boolean(sessionStorage.getItem('dk_user_token'));
+
+  // Define icons
+  const iconHome = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`;
+  const iconCommunity = ICONS.other; // Generic groups/community icon
+  const iconFile = ICONS.file;
+  const iconTrack = ICONS.search;
+  const iconAuth = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`;
+
+  container.innerHTML = `
+    <aside class="sidebar" id="dashSide">
+      <div class="sb-brand-row">
+        <a class="sb-brand-link" href="/" aria-label="DarKhwast Home">
+          <span class="sb-logo-tile" aria-hidden="true">
+            <img src="/assets/Logo.png" alt="" width="20" height="20" style="filter: brightness(0) invert(1);">
+          </span>
+          <span class="sb-brand-text">
+            <span class="sb-brand-name">DarKhwast</span>
+            <span class="sb-brand-sub" data-i18n="nav_citizen">Citizen Portal</span>
+          </span>
+        </a>
+        <button type="button" class="sb-collapse-btn" id="sideCollapseBtn" aria-label="Collapse sidebar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+      </div>
+      <div class="sb-divider"></div>
+
+      <div class="sb-scroll">
+        <nav class="sb-nav" aria-label="Main navigation">
+          <a class="sb-link" href="/">
+            <span class="sb-nav-icon" aria-hidden="true">${iconHome}</span>
+            <span class="sb-nav-label" data-i18n="nav_home">Home</span>
+          </a>
+          <a class="sb-link ${active === 'community' ? 'active' : ''}" href="/community.html">
+            <span class="sb-nav-icon" aria-hidden="true">${iconCommunity}</span>
+            <span class="sb-nav-label" data-i18n="nav_community">Community</span>
+          </a>
+          <a class="sb-link ${active === 'file' ? 'active' : ''}" href="/file.html">
+            <span class="sb-nav-icon" aria-hidden="true">${iconFile}</span>
+            <span class="sb-nav-label" data-i18n="cta_file_short">File Complaint</span>
+          </a>
+          <a class="sb-link ${active === 'track' ? 'active' : ''}" href="/track.html">
+            <span class="sb-nav-icon" aria-hidden="true">${iconTrack}</span>
+            <span class="sb-nav-label" data-i18n="nav_track">Track</span>
+          </a>
+        </nav>
+      </div>
+
+      <div class="sb-foot">
+        <button type="button" class="sb-foot-signout lang-toggle" style="margin-bottom: 8px;">
+          <span class="sb-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
+          <span class="sb-nav-label" data-i18n="lang_name">English</span>
+        </button>
+        ${authed
+          ? `<a href="/account.html" class="sb-foot-signout" style="text-decoration:none; color:var(--sb-muted)">
+               <span class="sb-nav-icon" aria-hidden="true">${iconAuth}</span>
+               <span class="sb-nav-label" data-i18n="nav_my_account">My Account</span>
+             </a>`
+          : `<a href="/signin.html" class="sb-foot-signout" style="text-decoration:none; color:var(--sb-muted)">
+               <span class="sb-nav-icon" aria-hidden="true">${iconAuth}</span>
+               <span class="sb-nav-label" data-i18n="nav_signin">Sign in</span>
+             </a>`
+        }
+      </div>
+    </aside>
+  `;
+
+  // Attach language toggle listener for the newly injected button
+  bindLangToggle(() => {
+    // Re-render nav labels when language changes
+    const brandSub = container.querySelector('[data-i18n="nav_citizen"]');
+    if (brandSub) brandSub.textContent = t('nav_citizen') || 'Citizen Portal';
+    container.querySelectorAll('[data-i18n]').forEach(el => {
+      if (el.dataset.i18n === 'lang_name') {
+        el.textContent = t('lang_name');
+      } else {
+        el.textContent = t(el.dataset.i18n) || el.textContent;
+      }
+    });
+  });
+
+  // Attach toggle logic
+  const side = document.getElementById('dashSide');
+  const layout = side && side.closest('.dash-layout');
+  const btn = document.getElementById('sideCollapseBtn');
+  const backdrop = document.getElementById('sideBackdrop');
+  
+  if (btn && side) {
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      var collapsed = side.classList.toggle('collapsed');
+      layout && layout.classList.toggle('sidebar-collapsed', collapsed);
+    });
+  }
+
+  // Mobile menu toggle via a topbar button if present
+  const mobileBtn = document.getElementById('menuBtn');
+  if (mobileBtn && side && backdrop) {
+    mobileBtn.addEventListener('click', () => {
+      side.classList.add('open');
+      backdrop.classList.add('show');
+      document.body.style.overflow = 'hidden';
+    });
+    backdrop.addEventListener('click', () => {
+      side.classList.remove('open');
+      backdrop.classList.remove('show');
+      document.body.style.overflow = '';
+    });
+  }
+}
+
 export function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -276,7 +423,9 @@ export function statusIcon(status, size = 24) {
 }
 
 export function statusPill(status) {
-  const label = (STATUS_LABELS[status] || status).replace(/_/g, ' ');
+  // tv() falls back to the English VOCAB label until initLang() runs, so the
+  // English-only official pages keep their exact current output.
+  const label = tv('statuses', status) || (STATUS_LABELS[status] || status).replace(/_/g, ' ');
   return `<span class="status-pill ${status}">${statusIcon(status, 12)}${label}</span>`;
 }
 

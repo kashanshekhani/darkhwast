@@ -12,11 +12,16 @@ import { CATEGORIES, SEVERITIES, CONFIDENCE_THRESHOLD, resolveDepartment, CATEGO
 import { buildLetter, buildSubject } from './lib/letter.js';
 import { dispatchComplaintEmail, dispatchCitizenConfirmationEmail, mailMode } from './lib/mail.js';
 import {
-  genId, genTrackingId, verifyPassword, nowIso, RateLimiter,
+  genId, genTrackingId, hashPassword, verifyPassword, nowIso, RateLimiter,
   hasProfanity, isPhone, isEmail, ipOf, OFFICIAL_STATUSES, PUBLIC_STATUSES,
 } from './lib/util.js';
 import { escalate } from './lib/escalation.js';
 import { assessImage } from './lib/vision.js';
+import {
+  googleConfigured, authUrl, signState, verifyState, exchangeCode,
+  issueHandoffCode, redeemHandoffCode,
+} from './lib/googleAuth.js';
+import { buildFeed, communityView, engagementOf, reporterOf } from './lib/community.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)));
 const PUB = path.join(ROOT, 'public');
@@ -74,6 +79,11 @@ const sendRL = new RateLimiter(Number(process.env.RATE_LIMIT_SEND || 10), 3600e3
 const loginRL = new RateLimiter(Number(process.env.RATE_LIMIT_LOGIN || 20), 3600e3);
 const readRL = new RateLimiter(Number(process.env.RATE_LIMIT_READ || 120), 3600e3);   // public complaint/tracking reads per IP
 const editRL = new RateLimiter(Number(process.env.RATE_LIMIT_EDIT || 20), 3600e3);   // citizen category corrections per IP
+const registerRL = new RateLimiter(Number(process.env.RATE_LIMIT_REGISTER || 5), 3600e3);   // citizen registrations per IP
+const citizenLoginRL = new RateLimiter(Number(process.env.RATE_LIMIT_CITIZEN_LOGIN || 10), 3600e3);   // citizen logins per IP
+const supportRL = new RateLimiter(Number(process.env.RATE_LIMIT_SUPPORT || 60), 3600e3);   // support toggles per IP
+const commentRL = new RateLimiter(Number(process.env.RATE_LIMIT_COMMENT || 10), 3600e3);   // comments per IP
+const reportRL = new RateLimiter(Number(process.env.RATE_LIMIT_REPORT || 10), 3600e3);   // comment reports per IP
 
 // ---------------------------------------------------------------------------
 // Server-Sent Events: push live updates to dashboard, queue, complaint detail,
@@ -180,6 +190,59 @@ const auth = (req, res, next) => {
 };
 
 // ---------------------------------------------------------------------------
+// citizen accounts (community platform) — fully separate from officials:
+// db.users + db.citizen_sessions; the client stores the token under
+// `dk_user_token`, officials keep using `dk_token`.
+// ---------------------------------------------------------------------------
+const CITIZEN_TTL_MS = Number(process.env.CITIZEN_SESSION_TTL_HOURS || process.env.SESSION_TTL_HOURS || 168) * 3600e3;
+const citizenSessionExpired = (s) => Date.now() - Date.parse(s.createdAt) > CITIZEN_TTL_MS;
+
+function citizenFromRequest(req) {
+  const h = req.headers.authorization || '';
+  const token = h.startsWith('Bearer ') ? h.slice(7) : null;
+  const session = token && db.citizen_sessions[token];
+  if (!session) return { user: null, token };
+  if (citizenSessionExpired(session)) {
+    delete db.citizen_sessions[token];
+    saveDb();
+    return { user: null, token };
+  }
+  const user = db.users.find((u) => u.id === session.userId);
+  if (!user) {
+    delete db.citizen_sessions[token];
+    saveDb();
+    return { user: null, token };
+  }
+  return { user, token };
+}
+
+// 401 when the citizen token is missing, invalid or expired.
+const citizenAuth = (req, res, next) => {
+  const { user, token } = citizenFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'Please sign in to continue.' });
+  req.user = user;
+  req.citizenToken = token;
+  next();
+};
+
+// Sets req.user when a valid citizen token is present; guests stay guests.
+const citizenAuthOptional = (req, res, next) => {
+  req.user = citizenFromRequest(req).user;
+  next();
+};
+
+const citizenView = (u) => ({ id: u.id, name: u.name, email: u.email, auth_provider: u.auth_provider, created_at: u.created_at });
+
+function issueCitizenToken(user) {
+  for (const [tk, s] of Object.entries(db.citizen_sessions)) {
+    if (citizenSessionExpired(s)) delete db.citizen_sessions[tk];
+  }
+  const token = genId() + genId().replace(/-/g, '');
+  db.citizen_sessions[token] = { userId: user.id, createdAt: nowIso() };
+  return token;
+}
+
+// ---------------------------------------------------------------------------
 // Server-Sent Events endpoints
 // ---------------------------------------------------------------------------
 // Official SSE stream (dashboard + queue + complaint detail pages).
@@ -233,13 +296,16 @@ app.get('/api/meta/cities', (req, res) => res.json({
   })),
 }));
 
+// lets the auth pages honestly hide the Google button when OAuth is unconfigured
+app.get('/api/meta/auth', (req, res) => res.json({ google_configured: googleConfigured() }));
+
 // ---------------------------------------------------------------------------
 // citizen: create complaint (FR-1 + FR-2 + FR-4 + draft FR-3)
 // ---------------------------------------------------------------------------
-app.post('/api/complaints', async (req, res) => {
+app.post('/api/complaints', citizenAuthOptional, async (req, res) => {
   try {
     if (!createRL.check(ipOf(req))) return res.status(429).json({ error: 'Too many complaints from this device. Please try again later.' });
-    const { raw_text = '', city = '', area = '', images = [], email = '', phone = '', lat, lng, anonymous = true } = req.body || {};
+    const { raw_text = '', city = '', area = '', images = [], email = '', phone = '', lat, lng, anonymous = true, visibility = 'private' } = req.body || {};
     const field_errors = {};
     if (String(raw_text).trim().length < 20) field_errors.raw_text = 'Please describe the problem in at least 20 characters.';
     else if (hasProfanity(raw_text)) field_errors.raw_text = 'Please describe the issue without abusive language.';
@@ -248,6 +314,7 @@ app.post('/api/complaints', async (req, res) => {
     const phoneStr = String(phone || '').trim();
     if (emailStr && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailStr)) field_errors.email = 'Please enter a valid email address.';
     if (phoneStr && !/^[0-9+\-\s()]{7,20}$/.test(phoneStr)) field_errors.phone = 'Please enter a valid phone number (e.g. 0300-1234567).';
+    if (visibility !== undefined && !['public', 'private'].includes(visibility)) field_errors.visibility = 'Visibility must be public or private.';
     if (Object.keys(field_errors).length) return res.status(400).json({ error: 'Please fix the highlighted fields.', field_errors });
 
     const complaintId = genId();
@@ -311,6 +378,8 @@ app.post('/api/complaints', async (req, res) => {
       citizen_email: String(email).trim() || null,
       created_at: now, sent_at: null, resolved_at: null,
       dispatch_log: [], letter_final: null, is_sample: false,
+      visibility: visibility === 'public' ? 'public' : 'private',
+      created_by_user_id: req.user ? req.user.id : null,
       escalation_level: 0, escalated_at: null,
       photo_assessment: photoAssessment,
     };
@@ -444,6 +513,374 @@ app.get('/api/track/:tid', (req, res) => {
 app.get('/track/:tid', (req, res) => res.redirect(302, `/track.html?tid=${encodeURIComponent(req.params.tid)}`));
 
 // ---------------------------------------------------------------------------
+// citizen: accounts (email/password + Google Sign-In) — community platform
+// ---------------------------------------------------------------------------
+app.post('/api/auth/register', (req, res) => {
+  if (!registerRL.check(ipOf(req))) return res.status(429).json({ error: 'Too many registrations from this device. Please try again later.' });
+  const { name = '', email = '', password = '', confirm = '' } = req.body || {};
+  const nameStr = String(name).trim();
+  const emailStr = String(email).toLowerCase().trim();
+  const passStr = String(password);
+  const field_errors = {};
+  if (nameStr.length < 2 || nameStr.length > 80) field_errors.name = 'Please enter your name (2–80 characters).';
+  else if (hasProfanity(nameStr)) field_errors.name = 'Please enter your name without abusive language.';
+  if (!isEmail(emailStr)) field_errors.email = 'Please enter a valid email address.';
+  if (passStr.length < 8) field_errors.password = 'Password must be at least 8 characters.';
+  else if (passStr.length > 200) field_errors.password = 'Password must be at most 200 characters.';
+  else if (passStr !== String(confirm)) field_errors.confirm = 'Passwords do not match.';
+  if (Object.keys(field_errors).length) return res.status(400).json({ error: 'Please fix the highlighted fields.', field_errors });
+  if (db.users.some((u) => u.email === emailStr)) {
+    return res.status(409).json({ error: 'Please fix the highlighted fields.', field_errors: { email: 'An account with this email already exists. Try signing in instead.' } });
+  }
+  const user = {
+    id: genId(), name: nameStr, email: emailStr,
+    password_hash: hashPassword(passStr), google_id: null, auth_provider: 'password',
+    created_at: nowIso(), updated_at: nowIso(),
+  };
+  db.users.push(user);
+  const token = issueCitizenToken(user);
+  saveDb();
+  res.status(201).json({ token, user: citizenView(user) });
+});
+
+app.post('/api/auth/login', (req, res) => {
+  if (!citizenLoginRL.check(ipOf(req))) return res.status(429).json({ error: 'Too many attempts. Try later.' });
+  const { email = '', password = '' } = req.body || {};
+  const user = db.users.find((u) => u.email === String(email).toLowerCase().trim());
+  // Same generic message for unknown email and wrong password: never reveal
+  // whether an account exists.
+  if (!user || !user.password_hash || !verifyPassword(password, user.password_hash)) {
+    return res.status(401).json({ error: 'Sign-in failed. Check your email and password.' });
+  }
+  const token = issueCitizenToken(user);
+  saveDb();
+  res.json({ token, user: citizenView(user) });
+});
+
+app.post('/api/auth/logout', citizenAuth, (req, res) => {
+  delete db.citizen_sessions[req.citizenToken];
+  saveDb();
+  res.json({ ok: true });
+});
+
+app.get('/api/auth/me', citizenAuth, (req, res) => {
+  res.json({ user: citizenView(req.user) });
+});
+
+// display name only — email and auth provider are immutable here
+app.patch('/api/auth/me', citizenAuth, (req, res) => {
+  const { name = '' } = req.body || {};
+  const nameStr = String(name).trim();
+  const field_errors = {};
+  if (nameStr.length < 2 || nameStr.length > 80) field_errors.name = 'Please enter your name (2–80 characters).';
+  else if (hasProfanity(nameStr)) field_errors.name = 'Please enter your name without abusive language.';
+  if (Object.keys(field_errors).length) return res.status(400).json({ error: 'Please fix the highlighted fields.', field_errors });
+  req.user.name = nameStr;
+  req.user.updated_at = nowIso();
+  saveDb();
+  res.json({ user: citizenView(req.user) });
+});
+
+// account page: complaints this citizen filed (own drafts included — they own them)
+app.get('/api/auth/me/complaints', citizenAuth, (req, res) => {
+  const list = db.complaints
+    .filter((c) => c.created_by_user_id === req.user.id)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .map((c) => ({ ...publicView(c), visibility: c.visibility }));
+  res.json({ complaints: list });
+});
+
+// account page: issues this citizen supports (public issues only, sanitized)
+app.get('/api/auth/me/supports', citizenAuth, (req, res) => {
+  const list = db.supports
+    .filter((s) => s.user_id === req.user.id)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .map((s) => {
+      const c = findByRecordId(s.complaint_id);
+      if (!c || c.visibility !== 'public' || !PUBLIC_STATUSES.includes(c.status)) return null;
+      return {
+        supported_at: s.created_at,
+        issue: communityView(c, {
+          supportCount: db.supports.filter((x) => x.complaint_id === c.id).length,
+          commentCount: db.comments.filter((m) => m.complaint_id === c.id && m.status !== 'hidden').length,
+          reporter: reporterOf(c, db.users),
+          deptName: c.department_id ? deptOf(c)?.name : null,
+        }),
+      };
+    })
+    .filter(Boolean);
+  res.json({ supports: list });
+});
+
+// Google Sign-In: manual OAuth 2.0 authorization-code flow (lib/googleAuth.js).
+// The callback never puts tokens in URLs — it hands the page a one-time code.
+const originOf = (req) => {
+  if (process.env.PUBLIC_BASE_URL) return String(process.env.PUBLIC_BASE_URL).replace(/\/+$/, '');
+  const proto = process.env.TRUST_PROXY === 'true' ? String(req.headers['x-forwarded-proto'] || 'http').split(',')[0].trim() : 'http';
+  return `${proto}://${req.headers.host || `localhost:${PORT || 3000}`}`;
+};
+
+app.get('/auth/google', (req, res) => {
+  if (!googleConfigured()) return res.redirect(302, '/signin.html?google=unconfigured');
+  res.redirect(302, authUrl(originOf(req), signState()));
+});
+
+app.get('/auth/google/callback', async (req, res) => {
+  try {
+    if (!googleConfigured()) return res.redirect(302, '/signin.html?google=unconfigured');
+    const { code, state, error } = req.query;
+    if (error) return res.redirect(302, '/signin.html?google=denied');
+    if (!code || !verifyState(state)) return res.redirect(302, '/signin.html?google=state');
+    const profile = await exchangeCode(code, originOf(req));
+    if (!profile.email || !profile.email_verified) return res.redirect(302, '/signin.html?google=email');
+
+    // Link by google_id first, then by verified email (lets an existing
+    // password account adopt Google sign-in).
+    let user = db.users.find((u) => u.google_id === profile.sub)
+      || db.users.find((u) => u.email === profile.email);
+    if (user) {
+      user.google_id = user.google_id || profile.sub;
+      user.updated_at = nowIso();
+    } else {
+      user = {
+        id: genId(), name: profile.name, email: profile.email,
+        password_hash: null, google_id: profile.sub, auth_provider: 'google',
+        created_at: nowIso(), updated_at: nowIso(),
+      };
+      db.users.push(user);
+    }
+    const token = issueCitizenToken(user);
+    saveDb();
+    res.redirect(302, `/signin.html?google=1&h=${encodeURIComponent(issueHandoffCode({ token, userId: user.id }))}`);
+  } catch (e) {
+    console.error('[auth] google callback failed:', e.message);
+    res.redirect(302, '/signin.html?google=error');
+  }
+});
+
+// one-time handoff code from the callback URL → real Bearer token
+app.post('/api/auth/google/exchange', (req, res) => {
+  if (!citizenLoginRL.check(ipOf(req))) return res.status(429).json({ error: 'Too many attempts. Try later.' });
+  const entry = redeemHandoffCode(req.body?.h);
+  if (!entry) return res.status(401).json({ error: 'This sign-in link expired. Please try Google sign-in again.' });
+  const user = db.users.find((u) => u.id === entry.userId);
+  if (!user) return res.status(401).json({ error: 'Session expired. Please sign in again.' });
+  res.json({ token: entry.token, user: citizenView(user) });
+});
+
+// ---------------------------------------------------------------------------
+// citizen: community issues feed (public, sanitized — lib/community.js)
+// ---------------------------------------------------------------------------
+app.get('/api/community/issues', (req, res) => {
+  if (!readRL.check(ipOf(req))) return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+  const { q, city, area, category, status, dept, sort, page } = req.query;
+  try {
+    res.json(buildFeed(db, {
+      q: String(q || ''), city: String(city || ''), area: String(area || ''),
+      category: String(category || ''), status: String(status || ''),
+      dept: String(dept || ''), sort: String(sort || 'newest'), page: String(page || '1'),
+    }));
+  } catch (e) {
+    console.error('[api] community feed failed:', e);
+    res.status(500).json({ error: 'Something went wrong on our side. Please try again.' });
+  }
+});
+
+// public issue detail: sanitized view + the real status timeline (the same
+// event shape trackView already exposes publicly — no fabrication).
+app.get('/api/community/issues/:id', (req, res) => {
+  if (!readRL.check(ipOf(req))) return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+  const c = findByRecordId(req.params.id);
+  if (!c || c.visibility !== 'public' || !PUBLIC_STATUSES.includes(c.status)) {
+    return res.status(404).json({ error: 'Issue not found.' });
+  }
+  const { supportCount, commentCount } = engagementOf(db, c.id);
+  res.json({
+    issue: communityView(c, {
+      supportCount,
+      commentCount,
+      reporter: reporterOf(c, db.users),
+      deptName: c.department_id ? deptOf(c)?.name : null,
+    }),
+    events: eventsOf(c.id).map((e) => ({ from_status: e.from_status, to_status: e.to_status, actor: e.actor, note: e.note, at: e.created_at })),
+  });
+});
+
+// engagement is only possible on issues that are actually public
+const findPublicIssue = (id) => {
+  const c = findByRecordId(id);
+  return (c && c.visibility === 'public' && PUBLIC_STATUSES.includes(c.status)) ? c : null;
+};
+
+// ---------------------------------------------------------------------------
+// citizen: support (one per user per issue, toggleable)
+// ---------------------------------------------------------------------------
+app.post('/api/community/issues/:id/support', citizenAuth, (req, res) => {
+  if (!supportRL.check(ipOf(req))) return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+  const c = findPublicIssue(req.params.id);
+  if (!c) return res.status(404).json({ error: 'Issue not found.' });
+  // uniqueness enforced by lookup before push — one row per user+complaint
+  if (db.supports.some((s) => s.complaint_id === c.id && s.user_id === req.user.id)) {
+    return res.status(409).json({ error: 'You already support this issue.' });
+  }
+  db.supports.push({ id: genId(), user_id: req.user.id, complaint_id: c.id, created_at: nowIso() });
+  saveDb();
+  const supportCount = db.supports.filter((s) => s.complaint_id === c.id).length;
+  res.status(201).json({ supported: true, support_count: supportCount });
+});
+
+app.delete('/api/community/issues/:id/support', citizenAuth, (req, res) => {
+  if (!supportRL.check(ipOf(req))) return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+  const c = findPublicIssue(req.params.id);
+  if (!c) return res.status(404).json({ error: 'Issue not found.' });
+  const idx = db.supports.findIndex((s) => s.complaint_id === c.id && s.user_id === req.user.id);
+  if (idx === -1) return res.status(409).json({ error: 'You do not support this issue yet.' });
+  db.supports.splice(idx, 1);
+  saveDb();
+  const supportCount = db.supports.filter((s) => s.complaint_id === c.id).length;
+  res.json({ supported: false, support_count: supportCount });
+});
+
+// ---------------------------------------------------------------------------
+// citizen: discussion (public read, login to post, author-only delete)
+// ---------------------------------------------------------------------------
+const commentView = (m, viewer) => {
+  const author = db.users.find((u) => u.id === m.user_id);
+  return {
+    id: m.id,
+    user: { name: author ? author.name : 'Citizen' },
+    content: m.content,
+    created_at: m.created_at,
+    updated_at: m.updated_at || m.created_at,
+    mine: Boolean(viewer && viewer.id === m.user_id),
+  };
+};
+
+app.get('/api/community/issues/:id/comments', citizenAuthOptional, (req, res) => {
+  if (!readRL.check(ipOf(req))) return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+  const c = findPublicIssue(req.params.id);
+  if (!c) return res.status(404).json({ error: 'Issue not found.' });
+  const list = db.comments
+    .filter((m) => m.complaint_id === c.id && m.status !== 'hidden')
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
+    .map((m) => commentView(m, req.user));
+  res.json({ comments: list });
+});
+
+app.post('/api/community/issues/:id/comments', citizenAuth, (req, res) => {
+  if (!commentRL.check(ipOf(req))) return res.status(429).json({ error: 'Too many comments from this device. Please try again later.' });
+  const c = findPublicIssue(req.params.id);
+  if (!c) return res.status(404).json({ error: 'Issue not found.' });
+  const content = String(req.body?.content || '').trim();
+  if (content.length < 2 || content.length > 1000) {
+    return res.status(400).json({ error: 'Please fix the highlighted fields.', field_errors: { content: 'Comments must be 2–1000 characters.' } });
+  }
+  if (hasProfanity(content)) {
+    return res.status(400).json({ error: 'Please fix the highlighted fields.', field_errors: { content: 'Please comment without abusive language.' } });
+  }
+  // exact duplicate by the same user on the same issue is spam, not opinion
+  const dup = db.comments.some((m) => m.complaint_id === c.id && m.user_id === req.user.id && m.content === content);
+  if (dup) {
+    return res.status(409).json({ error: 'You already posted this comment on this issue.' });
+  }
+  const now = nowIso();
+  const m = { id: genId(), complaint_id: c.id, user_id: req.user.id, content, created_at: now, updated_at: now, status: 'visible' };
+  db.comments.push(m);
+  saveDb();
+  res.status(201).json({ comment: commentView(m, req.user) });
+});
+
+app.delete('/api/community/comments/:id', citizenAuth, (req, res) => {
+  if (!commentRL.check(ipOf(req))) return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+  const m = db.comments.find((x) => x.id === req.params.id);
+  if (!m) return res.status(404).json({ error: 'Comment not found.' });
+  // author only — the same message whether the comment is missing or someone
+  // else's, so nobody can probe which comment IDs exist.
+  if (m.user_id !== req.user.id) return res.status(403).json({ error: 'You can only delete your own comments.' });
+  db.comments = db.comments.filter((x) => x.id !== m.id);
+  // reports on a deleted comment are moot
+  db.comment_reports = db.comment_reports.filter((r) => r.comment_id !== m.id);
+  saveDb();
+  res.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
+// citizen: report a comment for moderation
+// ---------------------------------------------------------------------------
+const REPORT_REASONS = ['spam', 'abuse', 'harassment', 'misinformation', 'other'];
+
+app.post('/api/community/comments/:id/report', citizenAuth, (req, res) => {
+  if (!reportRL.check(ipOf(req))) return res.status(429).json({ error: 'Too many reports from this device. Please try again later.' });
+  const m = db.comments.find((x) => x.id === req.params.id);
+  if (!m || m.status === 'hidden') return res.status(404).json({ error: 'Comment not found.' });
+  const { reason = '' } = req.body || {};
+  if (!REPORT_REASONS.includes(reason)) {
+    return res.status(400).json({ error: 'Please choose a valid report reason.' });
+  }
+  // one OPEN report per user per comment (re-reporting after dismissal is fine)
+  const open = db.comment_reports.some((r) => r.comment_id === m.id && r.reported_by_user_id === req.user.id && r.status === 'open');
+  if (open) return res.status(409).json({ error: 'You already reported this comment.' });
+  db.comment_reports.push({ id: genId(), comment_id: m.id, reported_by_user_id: req.user.id, reason, created_at: nowIso(), status: 'open' });
+  saveDb();
+  res.status(201).json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
+// official: comment moderation (admin role only)
+// ---------------------------------------------------------------------------
+app.get('/api/official/comment-reports', auth, (req, res) => {
+  if (req.official.role !== 'admin') return res.status(403).json({ error: 'Only operator accounts can moderate comments.' });
+  const reports = db.comment_reports
+    .filter((r) => r.status === 'open')
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
+    .map((r) => {
+      const m = db.comments.find((x) => x.id === r.comment_id);
+      const author = m ? db.users.find((u) => u.id === m.user_id) : null;
+      const issue = m ? db.complaints.find((c) => c.id === m.complaint_id) : null;
+      return {
+        id: r.id, reason: r.reason, created_at: r.created_at, status: r.status,
+        comment: m ? {
+          id: m.id, content: m.content, status: m.status, created_at: m.created_at,
+          author: author ? { name: author.name } : { name: 'Deleted account' },
+          issue: issue ? { id: issue.id, title: issue.summary_en, tracking_id: issue.tracking_id } : null,
+        } : null,
+        reported_by: db.users.find((u) => u.id === r.reported_by_user_id)?.name || 'Deleted account',
+      };
+    });
+  res.json({ reports, open_count: reports.length });
+});
+
+app.patch('/api/official/comments/:id/status', auth, (req, res) => {
+  if (req.official.role !== 'admin') return res.status(403).json({ error: 'Only operator accounts can moderate comments.' });
+  const m = db.comments.find((x) => x.id === req.params.id);
+  if (!m) return res.status(404).json({ error: 'Comment not found.' });
+  const { status } = req.body || {};
+  if (!['visible', 'hidden'].includes(status)) return res.status(400).json({ error: 'Invalid status.' });
+  m.status = status;
+  m.updated_at = nowIso();
+  // hiding a comment resolves its open reports (the action was taken)
+  if (status === 'hidden') {
+    for (const r of db.comment_reports) {
+      if (r.comment_id === m.id && r.status === 'open') r.status = 'resolved';
+    }
+  }
+  saveDb();
+  res.json({ ok: true, comment: { id: m.id, status: m.status } });
+});
+
+app.patch('/api/official/comment-reports/:id', auth, (req, res) => {
+  if (req.official.role !== 'admin') return res.status(403).json({ error: 'Only operator accounts can moderate comments.' });
+  const r = db.comment_reports.find((x) => x.id === req.params.id);
+  if (!r) return res.status(404).json({ error: 'Report not found.' });
+  const { status } = req.body || {};
+  if (status !== 'dismissed') return res.status(400).json({ error: 'Reports can only be dismissed.' });
+  if (r.status !== 'open') return res.status(409).json({ error: `Report is already ${r.status}.` });
+  r.status = 'dismissed';
+  saveDb();
+  res.json({ ok: true, report: { id: r.id, status: r.status } });
+});
+
+// ---------------------------------------------------------------------------
 // official: auth + dashboard (FR-7)
 // ---------------------------------------------------------------------------
 app.post('/api/official/login', (req, res) => {
@@ -572,4 +1009,5 @@ app.listen(PORT, () => {
   console.log(`DarKhwast running at http://localhost:${PORT}`);
   console.log(`Mail mode: ${mailMode().toUpperCase()}  |  AI: ${process.env.DASHSCOPE_API_KEY ? 'Qwen via DashScope' : 'offline rules fallback'}`);
   console.log(`Demo official: demo@darkhwast.pk / darkhwast2026`);
+  console.log(`Demo citizen: demo.citizen@darkhwast.pk / darkhwast2026`);
 });

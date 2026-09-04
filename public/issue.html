@@ -3,13 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>DarKhwast - Complaint filed</title>
+  <title data-i18n="community_title">Community Issues - DarKhwast</title>
+  <meta name="description" content="Public civic issue details, status timeline, support and community discussion.">
   <link rel="icon" type="image/png" href="/assets/Logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Noto+Naskh+Arabic:wght@400;500;700&family=Public+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/tokens.css">
   <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/community.css">
   <link rel="stylesheet" href="/css/sidebar-premium.css">
   <script>try{var l=localStorage.getItem('dk_lang')||'ur';document.documentElement.lang=l;document.documentElement.dir=l==='ur'?'rtl':'ltr';}catch(e){}</script>
 </head>
@@ -19,7 +21,7 @@
   <div class="dash-side-backdrop" id="sideBackdrop"></div>
   <div class="dash-layout">
     <div id="userSidebarContainer"></div>
-    <main id="main" class="dash-main shell" style="padding-top: 32px; padding-left: 32px; padding-right: 32px;">
+    <main id="main" class="dash-main shell-wide" style="padding-top: 32px; padding-left: 32px; padding-right: 32px;">
       <!-- Mobile Top Bar for toggle -->
       <div class="mobile-topbar" style="display: none; align-items: center; justify-content: space-between; margin-bottom: 24px;">
         <div style="display:flex; align-items:center; gap:12px;">
@@ -27,8 +29,8 @@
           <span style="font-weight: 700; font-size: 18px;">DarKhwast</span>
         </div>
       </div>
-      <div id="sentRoot">
-      <div class="card"><div class="sk-line w40"></div><div class="sk-line w80"></div><div class="sk-line w60"></div></div>
+      <div id="issueRoot">
+      <p class="progress-label" data-i18n="community_loading">Loading...</p>
     </div>
   </main>
   </div>
@@ -40,6 +42,6 @@
     }
   </style>
 
-  <script type="module" src="/js/sent.js"></script>
+  <script type="module" src="/js/issue.js"></script>
 </body>
 </html>

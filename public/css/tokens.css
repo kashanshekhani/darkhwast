@@ -1,0 +1,136 @@
+/* ============================================================================
+   DarKhwast — global design tokens (single source of truth)
+   Loaded FIRST on every page, before styles.css / landing.css / community.css /
+   dashboard-donezo.css. Those files only alias these tokens — never redefine
+   raw colours, radii, shadows or spacing.
+
+   Design system: calm healthcare/civic SaaS — light neutral background, white
+   elevated surfaces, teal primary, large radii, soft shadows, pill controls.
+   RTL-safe: no directional values live here.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+  /* ------------------------------ brand ---------------------------------- */
+  --color-primary: #009688;
+  --color-primary-hover: #00796B;
+  --color-primary-active: #00695C;
+  --color-primary-tint: #E6F4F3;      /* soft wash behind active/selected */
+  --color-primary-tint-strong: #CCE9E6;
+  --color-primary-soft: #4DB6AC;      /* accent on dark surfaces */
+  --color-primary-ring: rgba(0, 150, 136, .24);
+
+  /* -------------------------- surfaces & text ---------------------------- */
+  --color-background: #F8FAFC;
+  --color-surface: #FFFFFF;
+  --color-surface-muted: #F1F5F9;     /* inset wells, hover rows */
+  --color-text-primary: #0F172A;
+  --color-text-secondary: #64748B;
+  --color-text-tertiary: #94A3B8;     /* placeholders, eyebrow labels */
+  --color-border: #E2E8F0;
+  --color-border-strong: #CBD5E1;     /* input + secondary-button outlines */
+  --color-on-primary: #FFFFFF;
+  --surface-glass: rgba(255, 255, 255, .92);  /* sticky bars, mobile drawers */
+
+  /* dark surfaces (login hero panel, promo cards) — same slate family */
+  --color-inverse: #0F172A;
+  --color-inverse-2: #1E293B;
+  --color-on-inverse: #FFFFFF;
+  --color-on-inverse-muted: rgba(255, 255, 255, .72);
+  --color-on-inverse-faint: rgba(255, 255, 255, .12);
+
+  /* ------------------- semantic states (soft, muted) --------------------- */
+  --color-success: #0F766E;
+  --color-success-tint: #ECFDF5;
+  --color-warning: #B45309;
+  --color-warning-tint: #FFF8EB;
+  --color-error: #B91C1C;
+  --color-error-tint: #FEF2F2;
+  --color-info: #1D4ED8;
+  --color-info-tint: #EFF4FF;
+  --color-neutral: #64748B;
+  --color-neutral-tint: #F1F5F9;
+  --color-accent: #6D28D9;            /* "in progress" only */
+  --color-accent-tint: #F3F0FE;
+
+  /* ------------------------------ type ----------------------------------- */
+  --font-sans: 'Inter', 'Public Sans', 'Jameel Noori Nastaleeq', 'Noto Naskh Arabic',
+               system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-nastaliq: 'Jameel Noori Nastaleeq', 'Noto Naskh Arabic', 'Inter', system-ui, sans-serif;
+  --font-serif: 'Source Serif 4', 'Jameel Noori Nastaleeq', Georgia, serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* type scale — use these, never ad-hoc px */
+  --text-h1: 32px;      --lh-h1: 40px;
+  --text-h2: 24px;      --lh-h2: 32px;
+  --text-h3: 20px;      --lh-h3: 28px;
+  --text-h4: 17px;      --lh-h4: 24px;
+  --text-body: 16px;    --lh-body: 26px;
+  --text-body-sm: 14px; --lh-body-sm: 22px;
+  --text-caption: 13px; --lh-caption: 20px;
+  --text-micro: 11px;   --lh-micro: 16px;
+
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+  --tracking-tight: -0.015em;
+  --tracking-wide: 0.08em;
+
+  /* ---------------------- spacing (4/8/16/24/32/48) ---------------------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* ----------------------------- radius ---------------------------------- */
+  --radius-xs: 8px;                   /* chips, tiny meters */
+  --radius-sm: 12px;                  /* nested blocks, thumbnails */
+  --radius-md: 16px;                  /* secondary panels */
+  --radius-lg: 20px;                  /* inputs, inner cards */
+  --radius-xl: 24px;                  /* cards, modals, major surfaces */
+  --radius-pill: 999px;               /* buttons, tabs, badges */
+  --radius-card: var(--radius-xl);
+  --radius-modal: var(--radius-xl);
+  --radius-input: var(--radius-lg);
+  --radius-control: var(--radius-pill);
+
+  /* ---------------------------- elevation -------------------------------- */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, .04);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, .04), 0 1px 3px rgba(15, 23, 42, .03);
+  --shadow-md: 0 2px 8px rgba(15, 23, 42, .05), 0 1px 2px rgba(15, 23, 42, .04);
+  --shadow-lg: 0 8px 24px rgba(15, 23, 42, .07), 0 2px 6px rgba(15, 23, 42, .04);
+  --shadow-xl: 0 20px 48px rgba(15, 23, 42, .12), 0 4px 12px rgba(15, 23, 42, .06);
+  --shadow-primary: 0 6px 18px rgba(0, 150, 136, .18);
+
+  /* overlays & loading */
+  --grid-line: rgba(0, 150, 136, .06);   /* hero graph-paper rules */
+  --scrim: rgba(15, 23, 42, .45);
+  --scrim-strong: rgba(15, 23, 42, .82);
+  --skeleton-gradient: linear-gradient(90deg,
+      var(--color-surface-muted) 25%,
+      var(--color-background) 50%,
+      var(--color-surface-muted) 75%);
+
+  /* ---------------------------- controls --------------------------------- */
+  --control-h: 48px;
+  --control-h-sm: 40px;
+  --control-h-lg: 52px;
+  --control-pad-x: 24px;
+  --touch-min: 44px;                  /* minimum comfortable tap target */
+  --focus-ring: 0 0 0 3px var(--color-primary-ring);
+  --focus-ring-offset: 0 0 0 2px var(--color-surface), 0 0 0 5px var(--color-primary-ring);
+  --transition: .2s ease;
+  --transition-slow: .3s ease;
+
+  /* ---------------------------- containers ------------------------------- */
+  --container-wide: 1200px;
+  --container: 960px;
+  --container-narrow: 640px;
+  --container-form: 560px;
+}

@@ -1,9 +1,10 @@
 // Public tracking page (S5): read-only status stepper, zero PII.
 
 import { initLang, t, tv } from './i18n.js';
-import { api, bindLangToggle, esc, fmtDateTime, icon, mountIcons, qs } from './shared.js';
+import { api, bindLangToggle, esc, fmtDateTime, icon, mountIcons, mountCommunityNav, qs } from './shared.js';
 
 initLang();
+mountCommunityNav('track');
 bindLangToggle(() => state && render(state));
 
 const root = document.getElementById('trackRoot');

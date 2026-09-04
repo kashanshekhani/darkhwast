@@ -5,10 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>DarKhwast — Your complaint. The right department.</title>
   <meta name="description" content="Describe your civic problem in Urdu or English. DarKhwast understands it, drafts a formal complaint, routes it to the right department, and lets you track it.">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%230E6B5C'/><text x='16' y='21' font-size='13' font-family='monospace' text-anchor='middle' fill='white'>DK</text></svg>">
+  <link rel="icon" type="image/png" href="/assets/Logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Noto+Naskh+Arabic:wght@400;500;700&family=Public+Sans:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/tokens.css">
   <link rel="stylesheet" href="/css/landing.css">
   <script>try{var l=localStorage.getItem('dk_lang')||'ur';document.documentElement.lang=l;document.documentElement.dir=l==='ur'?'rtl':'ltr';}catch(e){}</script>
 </head>
@@ -19,7 +20,7 @@
   <header class="lp-nav">
     <div class="lp-nav-inner">
       <a class="lp-brand" href="/" aria-label="DarKhwast home">
-        <span class="lp-brand-mark">DK</span>
+        <img class="lp-brand-mark" src="/assets/Logo.png" alt="" width="64" height="43">
         <span class="lp-brand-name">DarKhwast</span>
         <span class="lp-brand-tag">· درخواست</span>
       </a>
@@ -31,6 +32,8 @@
         <a href="#track" data-i18n="nav_track">Track Complaint</a>
       </nav>
       <div class="lp-nav-actions">
+        <a href="/signin.html" class="lp-btn lp-btn-ghost lp-btn-sm js-citizen-signin" data-i18n="nav_signin">Sign in</a>
+        <a href="/register.html" class="lp-btn lp-btn-ghost lp-btn-sm js-citizen-register" data-i18n="nav_register">Create account</a>
         <a href="/file.html" class="lp-btn lp-btn-primary lp-btn-sm" data-i18n="cta_file_short">File a Complaint</a>
         <button type="button" class="lp-lang lang-toggle" data-i18n="lang_name">English</button>
         <button type="button" id="hamburgerBtn" class="lp-burger" aria-label="Menu" aria-expanded="false" aria-controls="mobileMenu">
@@ -46,6 +49,10 @@
       <a href="#track" data-i18n="nav_track">Track Complaint</a>
       <div class="lp-mobile-cta">
         <a href="/file.html" class="lp-btn lp-btn-primary" data-i18n="cta_file">File a Complaint</a>
+        <div class="lp-mobile-auth">
+          <a href="/signin.html" class="lp-btn lp-btn-ghost js-citizen-signin" data-i18n="nav_signin">Sign in</a>
+          <a href="/register.html" class="lp-btn lp-btn-ghost js-citizen-register" data-i18n="nav_register">Create account</a>
+        </div>
         <button type="button" class="lp-lang lang-toggle" data-i18n="lang_name">English</button>
       </div>
     </div>
@@ -369,7 +376,7 @@
         <div class="lp-footer-grid">
           <div class="lp-footer-brand">
             <a class="lp-brand" href="/">
-              <span class="lp-brand-mark">DK</span>
+              <img class="lp-brand-mark" src="/assets/Logo.png" alt="" width="51" height="34">
               <span class="lp-brand-name">DarKhwast</span>
             </a>
             <p data-i18n="footer_desc">AI-assisted civic complaint service for Pakistan. Describe the problem — we'll get it to the right department.</p>
@@ -410,6 +417,7 @@
           const open = !menu.hidden;
           menu.hidden = open;
           btn.setAttribute('aria-expanded', String(!open));
+          document.querySelector('.lp-nav')?.classList.toggle('menu-open', !open);
         });
       }
     });

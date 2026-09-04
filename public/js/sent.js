@@ -2,9 +2,10 @@
 // destination card, next steps, failure variant when send_failed.
 
 import { initLang, t } from './i18n.js';
-import { api, bindLangToggle, copyText, esc, fmtDateTime, icon, mountIcons, qs, toast } from './shared.js';
+import { api, bindLangToggle, copyText, esc, fmtDateTime, icon, mountIcons, mountCommunityNav, qs, toast } from './shared.js';
 
 initLang();
+mountCommunityNav();
 bindLangToggle(() => complaint && render(complaint));
 
 const root = document.getElementById('sentRoot');

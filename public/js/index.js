@@ -5,6 +5,24 @@ initLang();
 bindLangToggle();
 mountIcons();
 
+// signed-in citizens see My account instead of the Sign in / Create account buttons
+if (sessionStorage.getItem('dk_user_token')) {
+  document.querySelectorAll('.js-citizen-signin').forEach((a) => {
+    a.href = '/account.html';
+    a.dataset.i18n = 'nav_my_account';
+    a.textContent = t('nav_my_account');
+  });
+  document.querySelectorAll('.js-citizen-register').forEach((a) => { a.hidden = true; });
+}
+
+// transparent navbar at the very top; solid bar once the page is scrolled
+const nav = document.querySelector('.lp-nav');
+if (nav) {
+  const syncNav = () => nav.classList.toggle('scrolled', window.scrollY > 40);
+  addEventListener('scroll', syncNav, { passive: true });
+  syncNav();
+}
+
 document.getElementById('trackForm').addEventListener('submit', (e) => {
   e.preventDefault();
   const input = document.getElementById('tidInput');
@@ -31,6 +49,7 @@ mobileMenu?.querySelectorAll('a').forEach((a) => {
   a.addEventListener('click', () => {
     mobileMenu.hidden = true;
     document.getElementById('hamburgerBtn')?.setAttribute('aria-expanded', 'false');
+    nav?.classList.remove('menu-open');
   });
 });
 

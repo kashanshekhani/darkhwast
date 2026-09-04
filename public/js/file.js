@@ -2,9 +2,10 @@
 // staged progress messages during classification, error-summary validation.
 
 import { initLang, t } from './i18n.js';
-import { api, bindLangToggle, citySelect, initOfflineBanner, mountIcons, isPhoneLike, isEmailLike, icon } from './shared.js';
+import { api, bindLangToggle, citySelect, initOfflineBanner, mountIcons, mountCommunityNav, isPhoneLike, isEmailLike, icon } from './shared.js';
 
 initLang();
+mountCommunityNav('file');
 bindLangToggle(() => updateSubmit());
 mountIcons();
 initOfflineBanner();
