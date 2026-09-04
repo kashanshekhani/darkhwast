@@ -71,6 +71,7 @@ function render() {
   const letter = c.letter_final || c.draft_english || '';
   const canUpdate = ['sent', 'acknowledged', 'in_progress'].includes(c.status) && official.role !== 'viewer';
   const canResend = c.status === 'send_failed' && official.role !== 'viewer';
+  const canApprove = c.status === 'pending_approval' && official.role !== 'viewer';
   const images = c.images || [];
   const dept = c.department;
   const confPct = Math.round((c.ai_confidence || 0) * 100);
@@ -241,7 +242,15 @@ function render() {
     <!-- Sticky action dock -->
     <div class="dz-action-dock" id="actionDock">
       <div id="dockError" class="dz-action-dock-error"></div>
-      ${canUpdate || canResend ? `
+      ${canApprove ? `
+        <div style="display:flex; align-items:center; gap:12px; width:100%">
+          <div style="flex:1">
+            <strong style="font-size:14px">Pending admin approval</strong>
+            <p style="margin:2px 0 0; font-size:12px; color:var(--dz-ink-muted)">Review and click Approve &amp; Send to dispatch the email to ${esc(dept?.name || 'the department')}.</p>
+          </div>
+          <button type="button" class="btn btn-primary" id="approveBtn">${icon('send')} Approve &amp; Send</button>
+        </div>
+      ` : canUpdate || canResend ? `
         <span class="dz-action-dock-label">Status</span>
         ${canUpdate ? `<select class="control dock-status" id="statusSelect" aria-label="New status">
           <option value="acknowledged" ${c.status === 'acknowledged' ? 'selected' : ''}>Acknowledged</option>
@@ -306,6 +315,24 @@ function render() {
     } catch (e) {
       btn.disabled = false;
       btn.innerHTML = `${icon('send')} Re-send`;
+      document.getElementById('dockError').innerHTML = `<div class="dz-status-update-error">${icon('alert')} ${esc(e.message)}</div>`;
+      mountIcons(document.getElementById('dockError'));
+    }
+  });
+
+  // Approve & Send button (pending_approval complaints)
+  document.getElementById('approveBtn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('approveBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin"></span>Sending...';
+    try {
+      const data = await api(`/api/official/complaints/${encodeURIComponent(c.id)}/approve`, { method: 'POST' });
+      complaint = data.complaint;
+      toast('Complaint approved and sent');
+      render();
+    } catch (e) {
+      btn.disabled = false;
+      btn.innerHTML = `${icon('send')} Approve & Send`;
       document.getElementById('dockError').innerHTML = `<div class="dz-status-update-error">${icon('alert')} ${esc(e.message)}</div>`;
       mountIcons(document.getElementById('dockError'));
     }

@@ -841,6 +841,7 @@
 .dz-status-pill .status-shape svg { width: 12px; height: 12px; }
 .dz-status-pill.draft { background: var(--color-neutral-tint); color: var(--color-neutral); }
 .dz-status-pill.needs_review { background: var(--dz-amber-tint); color: var(--dz-amber); }
+.dz-status-pill.pending_approval { background: var(--dz-violet-tint); color: var(--dz-violet); }
 .dz-status-pill.sent { background: var(--dz-sky-tint); color: var(--dz-sky); }
 .dz-status-pill.send_failed { background: var(--dz-rose-tint); color: var(--dz-rose); }
 .dz-status-pill.acknowledged { background: var(--dz-accent-tint); color: var(--dz-accent); }

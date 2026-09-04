@@ -2670,6 +2670,7 @@ html {
 .status-pill .status-shape svg { width: 12px; height: 12px; }
 .status-pill.draft { background: var(--st-draft-tint); color: var(--st-draft-fg); }
 .status-pill.needs_review { background: var(--st-review-tint); color: var(--st-review-fg); }
+.status-pill.pending_approval { background: #EDE9FE; color: #7C3AED; }
 .status-pill.sent { background: var(--st-sent-tint); color: var(--st-sent-fg); }
 .status-pill.send_failed { background: var(--st-failed-tint); color: var(--st-failed-fg); }
 .status-pill.acknowledged { background: var(--st-ack-tint); color: var(--st-ack-fg); }

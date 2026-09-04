@@ -27,14 +27,18 @@ async function load() {
 
 function render(c) {
   const failed = c.status === 'send_failed';
+  const pending = c.status === 'pending_approval';
   const sim = c.last_dispatch?.simulated;
   root.innerHTML = `
     <section class="receipt" aria-live="polite">
       ${failed
         ? `<span class="stamp-mark" style="border-color:var(--sev-med); color:var(--sev-med)">${t('pending')}</span>`
+        : pending
+        ? `<span class="stamp-mark" style="border-color:#7C3AED; color:#7C3AED">PENDING</span>`
         : `<span class="stamp-mark">SENT</span>`}
-      <h1>${t('sent_t')}</h1>
+      <h1>${pending ? 'Submitted for Review' : t('sent_t')}</h1>
       ${failed ? `<div class="banner banner-error" style="text-align:start">${icon('alert')}<div>${t('fail_banner')}</div></div>` : ''}
+      ${pending ? `<div class="banner banner-warn" style="text-align:start">${icon('info')}<div>Your complaint is awaiting admin approval. Once approved, it will be sent to the department.</div></div>` : ''}
 
       <div class="tid-box">
         <div style="text-align:start">

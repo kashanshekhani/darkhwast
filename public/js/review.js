@@ -3,7 +3,11 @@
 // Category correction chips, edit-letter mode, anonymous toggle, confirm modal.
 
 import { initLang, t, tv } from './i18n.js';
+<<<<<<< HEAD
 import { api, bindLangToggle, esc, icon, CATEGORY_ICON, initOfflineBanner, mountIcons, mountCommunityNav, sealSvg, toast, qs, isPhoneLike, isEmailLike } from './shared.js';
+=======
+import { api, bindLangToggle, esc, icon, CATEGORY_ICON, initOfflineBanner, mountIcons, sealSvg, toast, qs, isPhoneLike, isEmailLike, copyText } from './shared.js';
+>>>>>>> 67583db5db746687a3b6b971ef473217ce80b7af
 
 initLang();
 mountCommunityNav();
@@ -31,8 +35,44 @@ async function load() {
     const data = await api(`/api/complaints/${encodeURIComponent(id)}`);
     complaint = data.complaint;
     anonState = complaint.is_anonymous !== false;
-    if (['sent', 'acknowledged', 'in_progress', 'resolved', 'rejected'].includes(complaint.status)) {
+    // Auto-sent (high severity) or already processed → go to receipt page
+    if (['sent', 'send_failed', 'acknowledged', 'in_progress', 'resolved', 'rejected'].includes(complaint.status)) {
       location.href = `/sent.html?id=${encodeURIComponent(id)}`;
+      return;
+    }
+    // Pending admin approval → show pending message
+    if (complaint.status === 'pending_approval') {
+      root.innerHTML = `
+        <section class="receipt" aria-live="polite">
+          <span class="stamp-mark" style="border-color:#7C3AED; color:#7C3AED">PENDING</span>
+          <h1>Submitted for Review</h1>
+          <p style="color:var(--ink-muted); max-width:480px; margin:0 auto 24px">
+            Your complaint has been submitted and is awaiting review by our team.
+            Once approved, it will be sent to the responsible department.
+            You can track its status using your tracking ID.
+          </p>
+          <div class="tid-box">
+            <div style="text-align:start">
+              <div class="small muted" style="margin-bottom:4px">Your tracking ID</div>
+              <div class="tid" lang="en" style="direction:ltr">${esc(complaint.tracking_id)}</div>
+            </div>
+            <button type="button" class="copy-btn" id="copyBtn">${icon('copy')}Copy</button>
+          </div>
+          <div class="card dest-card" style="text-align:start">
+            <dl class="kv">
+              <dt>Department</dt>
+              <dd class="lat" lang="en">${esc(complaint.department?.name || '-')}</dd>
+              <dt>Severity</dt>
+              <dd><span class="sev-dot ${complaint.severity}"><span class="dot"></span>${complaint.severity}</span></dd>
+            </dl>
+          </div>
+          <div class="row" style="margin-top:16px">
+            <a class="btn btn-primary btn-block" href="/track.html?tid=${encodeURIComponent(complaint.tracking_id)}">Track complaint</a>
+            <a class="btn btn-secondary btn-block" href="/">Back to home</a>
+          </div>
+        </section>`;
+      mountIcons(root);
+      document.getElementById('copyBtn')?.addEventListener('click', () => copyText(complaint.tracking_id));
       return;
     }
     chipsOpen = needsPick(complaint);
@@ -284,9 +324,10 @@ function render(c) {
     <div class="review-actions">
       <a href="/" class="btn btn-secondary">${icon('back')} Back</a>
       <button type="button" class="btn btn-primary" id="sendBtn" ${blockSend ? 'disabled' : ''}>
-        ${icon('send')} ${t('send')}
+        ${icon('send')} ${c.severity === 'high' ? t('send') : 'Submit for review'}
       </button>
     </div>
+    ${c.severity !== 'high' ? `<p class="small muted" style="text-align:center; margin-top:12px">This complaint will be reviewed by our team before being sent to the department.</p>` : ''}
   `;
 
   mountIcons(root);
