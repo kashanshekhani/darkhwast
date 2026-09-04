@@ -117,7 +117,8 @@ function navCounts() {
   document.getElementById('cnt-all').textContent = complaints.length;
   const attCount = complaints.filter((c) => ATTENTION.includes(c.status)).length;
   document.getElementById('cnt-attention').textContent = attCount;
-  document.querySelector('[data-status="needs_review"]')?.classList.toggle('attention-dot', attCount > 0);
+  // Toggle attention dot on the "Needs attention" sidebar link
+  document.querySelector('.sb-link.attention-dot')?.classList.toggle('attention-dot', attCount > 0);
   for (const s of ALL_NAV_STATUSES) {
     const el = document.getElementById(`cnt-${s}`);
     if (el) el.textContent = complaints.filter((c) => c.status === s).length;
@@ -125,7 +126,8 @@ function navCounts() {
 }
 
 function syncNav(active) {
-  document.querySelectorAll('#sideNav .side-link, #statusNav .side-link').forEach((b) => {
+  // Premium sidebar uses .sb-nav .sb-link with data-nav / data-status attributes
+  document.querySelectorAll('.sb-nav .sb-link').forEach((b) => {
     const isActive = b.dataset.nav === 'queue' || (b.dataset.status && b.dataset.status === active);
     b.classList.toggle('active', isActive);
     b.setAttribute('aria-selected', String(isActive));

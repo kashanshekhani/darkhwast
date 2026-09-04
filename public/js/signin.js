@@ -3,10 +3,9 @@
 // — completely separate from the government portal's `dk_token`.
 
 import { initLang, t, lang } from './i18n.js';
-import { api, bindLangToggle, mountCommunityNav, setCitizenSession, citizenUser, qs } from './shared.js';
+import { api, bindLangToggle, setCitizenSession, citizenUser, qs } from './shared.js';
 
 initLang();
-mountCommunityNav();
 bindLangToggle(() => showGoogleStatus());
 
 const errBox = document.getElementById('authError');

@@ -493,11 +493,13 @@ app.post('/api/complaints/:id/send', async (req, res) => {
     const dept = deptOf(c);
     if (!dept) return res.status(409).json({ error: 'No department could be routed for this complaint yet.' });
 
-    const { anonymous = true, name = '', letter_text = '' } = req.body || {};
+    const { anonymous = true, name = '', letter_text = '', visibility = 'private' } = req.body || {};
     const identity = { anonymous: Boolean(anonymous), name: String(name || '').trim(), phone: c.citizen_phone, email: c.citizen_email };
     if (!identity.anonymous && identity.name.length < 2) {
       return res.status(400).json({ error: 'Please fix the highlighted fields.', field_errors: { name: 'Please enter your name.' } });
     }
+    // Update visibility — citizen can choose to share on community feed
+    c.visibility = visibility === 'public' ? 'public' : 'private';
 
     let letter;
     if (letter_text) {
@@ -641,6 +643,37 @@ app.patch('/api/auth/me', citizenAuth, (req, res) => {
   res.json({ user: citizenView(req.user) });
 });
 
+// account deletion — removes the user, their sessions, complaints, supports,
+// and comments.  Complaints that were already sent to a department are
+// anonymised (reporter name → "Deleted account") rather than deleted, so
+// the department record stays intact.  Drafts/private complaints are removed.
+app.delete('/api/auth/me', citizenAuth, (req, res) => {
+  const userId = req.user.id;
+  // Remove all citizen sessions for this user
+  for (const [tk, s] of Object.entries(db.citizen_sessions)) {
+    if (s.userId === userId) delete db.citizen_sessions[tk];
+  }
+  // Remove supports by this user
+  db.supports = db.supports.filter((s) => s.user_id !== userId);
+  // Remove comments by this user
+  db.comments = db.comments.filter((m) => m.user_id !== userId);
+  // Complaints: delete drafts/private, anonymise sent/public ones
+  db.complaints = db.complaints.filter((c) => {
+    if (c.created_by_user_id !== userId) return true;
+    // Keep complaints that were already sent to a department (public record)
+    if (c.sent_at || PUBLIC_STATUSES.includes(c.status)) {
+      c.created_by_user_id = null;
+      return true;
+    }
+    // Remove drafts / private / unsent complaints
+    return false;
+  });
+  // Remove the user
+  db.users = db.users.filter((u) => u.id !== userId);
+  saveDb();
+  res.json({ ok: true });
+});
+
 // account page: complaints this citizen filed (own drafts included — they own them)
 app.get('/api/auth/me/complaints', citizenAuth, (req, res) => {
   const list = db.complaints
@@ -670,6 +703,28 @@ app.get('/api/auth/me/supports', citizenAuth, (req, res) => {
     })
     .filter(Boolean);
   res.json({ supports: list });
+});
+
+// account details: aggregate stats for the citizen's dashboard
+app.get('/api/auth/me/stats', citizenAuth, (req, res) => {
+  const userId = req.user.id;
+  const myComplaints = db.complaints.filter((c) => c.created_by_user_id === userId);
+  const mySupports = db.supports.filter((s) => s.user_id === userId);
+  const myComments = db.comments.filter((m) => m.user_id === userId);
+  const byStatus = {};
+  for (const c of myComplaints) byStatus[c.status] = (byStatus[c.status] || 0) + 1;
+  const resolved = byStatus.resolved || 0;
+  const total = myComplaints.length;
+  const resolutionRate = total > 0 ? Math.round((resolved / total) * 100) : 0;
+  res.json({
+    total_complaints: total,
+    total_supports: mySupports.length,
+    total_comments: myComments.length,
+    by_status: byStatus,
+    resolved,
+    resolution_rate: resolutionRate,
+    member_since: req.user.created_at,
+  });
 });
 
 // Google Sign-In: manual OAuth 2.0 authorization-code flow (lib/googleAuth.js).
@@ -974,7 +1029,7 @@ app.get('/api/official/complaints', auth, (req, res) => {
   const list = db.complaints
     .slice()
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
-    .map(officialView);
+    .map((c) => ({ ...officialView(c), events: eventsOf(c.id) }));
   res.json({ complaints: list, mail_mode: mailMode() });
 });
 

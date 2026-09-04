@@ -1079,6 +1079,32 @@ details.raw .raw-text { white-space: pre-wrap; background: var(--surface-muted);
 /* ------------------------------ empty / skeleton ------------------------ */
 .empty-state { text-align: center; padding: var(--s8) var(--s5); color: var(--ink-muted); }
 .empty-state .ic { width: 44px; height: 44px; margin: 0 auto var(--s4); color: var(--color-text-tertiary); }
+
+/* ------------------------------ track search ----------------------------- */
+.track-search-page { display: flex; align-items: center; justify-content: center; min-height: 60vh; }
+.track-search-card {
+  max-width: 560px; width: 100%; text-align: center;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-card); padding: var(--s8) var(--s6);
+  box-shadow: var(--shadow-lg);
+}
+.track-search-icon {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: var(--stamp-tint); color: var(--stamp);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto var(--s5);
+}
+.track-search-icon .ic { width: 28px; height: 28px; }
+.track-search-card h1 { font-size: var(--text-h2); margin-bottom: var(--s3); }
+.track-search-sub { margin-bottom: var(--s6); font-size: var(--text-body); }
+.track-search-row { display: flex; gap: var(--s3); flex-wrap: wrap; }
+.track-search-row .control { flex: 1; min-width: 200px; }
+.track-search-row .btn { flex: none; }
+.track-search-hint { margin-top: var(--s5); margin-bottom: 0; }
+@media (max-width: 600px) {
+  .track-search-row { flex-direction: column; }
+  .track-search-row .btn { width: 100%; }
+}
 .skeleton { border-radius: var(--radius-sm); background: var(--skeleton-gradient); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
 @keyframes shimmer { to { background-position: -200% 0; } }
 .sk-line { height: 14px; margin: 10px 0; }
@@ -2129,10 +2155,15 @@ html {
 .login-body {
   background: var(--paper);
   margin: 0;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
+  scrollbar-width: none;
 }
+.login-body::-webkit-scrollbar { display: none; width: 0; height: 0; }
+html:has(.login-body) { overflow: hidden; scrollbar-width: none; }
+html:has(.login-body)::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .login-split-layout {
   display: flex;
   flex: 1;
@@ -2283,6 +2314,9 @@ html {
   .login-wordmark { margin-bottom: var(--s5); }
   .login-subtext { font-size: var(--text-body); margin-bottom: var(--s5); }
   .login-right { padding: var(--s7) var(--s5); justify-content: flex-start; }
+  /* On mobile, allow vertical scroll but hide the scrollbar */
+  .login-body { height: auto; min-height: 100vh; overflow-y: auto; overflow-x: hidden; }
+  html:has(.login-body) { overflow-y: auto; overflow-x: hidden; }
 }
 @media (max-width: 480px) {
   .login-card { padding: var(--s5) var(--s4); }

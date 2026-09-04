@@ -81,8 +81,9 @@ function render() {
   const c = state.issue;
   const failed = c.status === 'send_failed';
   const rejected = c.status === 'rejected';
+  const pending = c.status === 'pending_approval';
   const idx = ORDER.indexOf(c.status);
-  const reached = failed ? 0 : (rejected ? 4 : (idx === -1 ? 1 : idx + 1));
+  const reached = failed ? 0 : (rejected ? 4 : (idx === -1 ? 0 : idx + 1));
 
   const noteFor = (status) => {
     const ev = [...state.events].reverse().find((e) => e.to_status === status);
@@ -96,7 +97,7 @@ function render() {
   };
   const steps = [
     { key: 'filed', label: tv('steps', 'filed'), note: null },
-    { key: 'sent', label: failed ? t('pending') : tv('steps', 'sent'), note: noteFor('sent')?.note },
+    { key: 'sent', label: pending ? t('pending_approval_step') : (failed ? t('pending') : tv('steps', 'sent')), note: noteFor('sent')?.note },
     { key: 'acknowledged', label: tv('steps', 'acknowledged'), note: noteFor('acknowledged')?.note },
     { key: 'in_progress', label: tv('steps', 'in_progress'), note: noteFor('in_progress')?.note },
     { key: 'resolved', label: rejected ? tv('statuses', 'rejected') : tv('steps', 'resolved'), note: noteFor('resolved')?.note || noteFor('rejected')?.note },

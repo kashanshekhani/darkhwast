@@ -12,24 +12,13 @@
   <link rel="stylesheet" href="/css/tokens.css">
   <link rel="stylesheet" href="/css/styles.css">
   <link rel="stylesheet" href="/css/community.css">
-  <link rel="stylesheet" href="/css/sidebar-premium.css">
   <script>try{var l=localStorage.getItem('dk_lang')||'ur';document.documentElement.lang=l;document.documentElement.dir=l==='ur'?'rtl':'ltr';}catch(e){}</script>
 </head>
 <body>
   <a class="skip" href="#main" data-i18n="skip">Skip to content</a>
 
-  <div class="dash-side-backdrop" id="sideBackdrop"></div>
-  <div class="dash-layout">
-    <div id="userSidebarContainer"></div>
-    <main id="main" class="dash-main auth-page" style="padding-top: 32px; padding-left: 32px; padding-right: 32px;">
-      <!-- Mobile Top Bar for toggle -->
-      <div class="mobile-topbar" style="display: none; align-items: center; justify-content: space-between; margin-bottom: 24px;">
-        <div style="display:flex; align-items:center; gap:12px;">
-          <button type="button" id="menuBtn" class="sb-collapse-btn" aria-label="Open menu" aria-expanded="false" style="margin:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
-          <span style="font-weight: 700; font-size: 18px;">DarKhwast</span>
-        </div>
-      </div>
-      <div class="auth-brand">
+  <main id="main" class="auth-page">
+    <div class="auth-brand">
       <a class="wordmark" href="/"><img class="dk-mark" src="/assets/Logo.png" alt="" width="36" height="24"> DarKhwast</a>
     </div>
     <h1 class="auth-title" data-i18n="signin_heading">Sign in to DarKhwast</h1>
@@ -66,14 +55,6 @@
       <strong data-i18n="signin_demo_banner">Demo citizen: demo.citizen@darkhwast.pk / darkhwast2026</strong>
     </div>
   </main>
-  </div>
-
-  <style>
-    @media (max-width: 768px) {
-      .mobile-topbar { display: flex !important; }
-      #main { padding: 16px !important; }
-    }
-  </style>
 
   <script type="module" src="/js/signin.js"></script>
 </body>

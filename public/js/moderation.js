@@ -3,17 +3,55 @@
 // Uses the government portal session (dk_token), never the citizen token.
 
 import { initLang, t } from './i18n.js';
-import { api, bindLangToggle, esc, fmtDateTime, requireOfficial, toast, icon, mountCommunityNav } from './shared.js';
+import { api, bindLangToggle, esc, fmtDateTime, requireOfficial, toast, icon, mountIcons } from './shared.js';
 
 initLang();
 if (!requireOfficial()) throw new Error('redirecting to login');
-mountCommunityNav();
 bindLangToggle(() => state.reports && render());
+
+const official = JSON.parse(sessionStorage.getItem('dk_official') || '{}');
+document.querySelectorAll('.js-who').forEach((el) => {
+  const roleClass = official.role === 'viewer' ? ' role-badge viewer' : ' role-badge';
+  el.innerHTML = `${esc(official.name || 'Official')}<span class="${roleClass.trim()}">${esc(official.role || 'official')}</span>`;
+});
+
+function toggleSidebar(open) {
+  const side = document.getElementById('dashSide');
+  const backdrop = document.getElementById('sideBackdrop');
+  const btn = document.getElementById('menuBtn');
+  const isOpen = open ?? !side.classList.contains('open');
+  side.classList.toggle('open', isOpen);
+  backdrop.classList.toggle('open', isOpen);
+  btn?.setAttribute('aria-expanded', String(isOpen));
+}
+document.getElementById('menuBtn')?.addEventListener('click', () => toggleSidebar());
+document.getElementById('sideBackdrop')?.addEventListener('click', () => toggleSidebar(false));
+document.querySelectorAll('.js-logout').forEach((btn) =>
+  btn.addEventListener('click', async () => {
+    try { await api('/api/official/logout', { method: 'POST' }); } catch {}
+    sessionStorage.removeItem('dk_token');
+    sessionStorage.removeItem('dk_official');
+    location.href = '/login.html';
+  }));
 
 const root = document.getElementById('modRoot');
 const errBox = document.getElementById('modError');
 
 const state = { reports: [] };
+
+// Populate the sidebar count badges with live data from the complaints API
+async function navCounts() {
+  try {
+    const data = await api('/api/official/complaints');
+    const complaints = data.complaints || [];
+    const cntAll = document.getElementById('cnt-all');
+    if (cntAll) cntAll.textContent = complaints.length;
+    for (const s of ['draft', 'needs_review', 'pending_approval', 'sent', 'send_failed', 'acknowledged', 'in_progress', 'resolved', 'rejected']) {
+      const el = document.getElementById(`cnt-${s}`);
+      if (el) el.textContent = complaints.filter((c) => c.status === s).length;
+    }
+  } catch { /* counts are non-critical */ }
+}
 
 async function load() {
   errBox.hidden = true;
@@ -31,6 +69,7 @@ async function load() {
           <h3>${esc(e.message)}</h3>
           <a class="btn btn-secondary" href="/dashboard.html" style="margin-top:var(--s4)">${esc(t('back_home'))}</a>
         </div>`;
+      mountIcons(root);
       return;
     }
     errBox.textContent = e.message;
@@ -46,9 +85,11 @@ function render() {
         ${icon('shield')}
         <h3>${esc(t('mod_empty'))}</h3>
       </div>`;
+    mountIcons(root);
     return;
   }
   root.innerHTML = `<div class="mod-row">${state.reports.map(reportHtml).join('')}</div>`;
+  mountIcons(root);
 
   root.querySelectorAll('.js-hide').forEach((b) =>
     b.addEventListener('click', () => setCommentStatus(b.dataset.cid, 'hidden')));
@@ -126,3 +167,4 @@ async function dismissReport(rid) {
 }
 
 load();
+navCounts();

@@ -175,7 +175,7 @@ function render() {
                 <li class="${isCurrent ? 'tl-current' : 'tl-done'}">
                   <div class="tl-mark"><span class="tl-shape">${statusIcon(e.to_status, 16)}</span></div>
                   <div class="tl-title">${esc(statusLabel(e.to_status))}</div>
-                  <div class="tl-when">${fmtDateTime(e.at)}</div>
+                  <div class="tl-when">${fmtDateTime(e.created_at)}</div>
                   ${e.note ? `<div class="tl-note">${esc(e.note)}</div>` : ''}
                   ${e.actor ? `<div class="tl-actor">by ${esc(e.actor)}</div>` : ''}
                 </li>`;

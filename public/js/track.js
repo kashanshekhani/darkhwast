@@ -28,7 +28,7 @@ function connectSSE() {
 
 async function load() {
   const tid = (qs('tid') || '').toUpperCase().trim();
-  if (!tid) { location.href = '/'; return; }
+  if (!tid) { renderSearchForm(); return; }
   try {
     const data = await api(`/api/track/${encodeURIComponent(tid)}`);
     state = data.complaint;
@@ -40,19 +40,60 @@ async function load() {
         ${icon('inbox')}
         <h2>${t('invalid_title')}</h2>
         <p class="muted">${t('invalid_help')}</p>
-        <a class="btn btn-secondary" href="/">${t('back_home')}</a>
+        <a class="btn btn-secondary" href="/track.html">${t('track_try_again')}</a>
       </div>`;
     mountIcons(root);
   }
 }
 
+function renderSearchForm() {
+  root.innerHTML = `
+    <div class="track-search-page">
+      <div class="track-search-card">
+        <div class="track-search-icon">${icon('search')}</div>
+        <h1>${t('track_title_lp')}</h1>
+        <p class="track-search-sub muted">${t('track_sub_lp')}</p>
+        <form id="trackSearchForm" novalidate>
+          <div class="track-search-row">
+            <input id="tidSearchInput" class="control" type="text" inputmode="latin"
+              placeholder="DK-2026-XXXXXX" autocomplete="off"
+              style="direction:ltr; text-align:start; font-size:18px; padding:14px 18px;">
+            <button type="submit" class="btn btn-primary" style="font-size:16px; padding:14px 28px;">
+              ${t('track_go_lp')}
+            </button>
+          </div>
+          <div class="field-error" id="tidSearchError" hidden></div>
+        </form>
+        <p class="track-search-hint muted small">${t('track_hint')}</p>
+      </div>
+    </div>`;
+  mountIcons(root);
+  const form = document.getElementById('trackSearchForm');
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = document.getElementById('tidSearchInput');
+    const errEl = document.getElementById('tidSearchError');
+    const val = input.value.toUpperCase().trim();
+    if (!val) {
+      errEl.textContent = t('track_invalid');
+      errEl.hidden = false;
+      return;
+    }
+    errEl.hidden = true;
+    location.href = `/track.html?tid=${encodeURIComponent(val)}`;
+  });
+}
+
 function render(c) {
   const failed = c.status === 'send_failed';
   const rejected = c.status === 'rejected';
+  const pending = c.status === 'pending_approval';
   const idx = ORDER.indexOf(c.status);
   // send_failed never reached "sent": only the "filed" step is done, and the
   // current step is a distinct "send pending" marker (not "sent to department").
-  const reached = failed ? 0 : (rejected ? 4 : (idx === -1 ? 1 : idx + 1));
+  // pending_approval/draft/needs_review also haven't reached "sent" — only
+  // "filed" is done, so the current step stays at "filed".
+  const reached = failed ? 0 : (rejected ? 4 : (idx === -1 ? 0 : idx + 1));
 
   // latest event note per target status
   const noteFor = (status) => {
@@ -67,7 +108,7 @@ function render(c) {
 
   const steps = [
     { key: 'filed', label: tv('steps', 'filed'), note: null, iso: c.created_at },
-    { key: 'sent', label: failed ? t('pending') : tv('steps', 'sent'), note: noteFor('sent')?.note, iso: whenFor('sent') },
+    { key: 'sent', label: pending ? t('pending_approval_step') : (failed ? t('pending') : tv('steps', 'sent')), note: noteFor('sent')?.note, iso: whenFor('sent') },
     { key: 'acknowledged', label: tv('steps', 'acknowledged'), note: noteFor('acknowledged')?.note, iso: noteFor('acknowledged')?.at },
     { key: 'in_progress', label: tv('steps', 'in_progress'), note: noteFor('in_progress')?.note, iso: noteFor('in_progress')?.at },
     { key: 'resolved', label: rejected ? tv('statuses', 'rejected') : tv('steps', 'resolved'), note: noteFor('resolved')?.note || noteFor('rejected')?.note, iso: noteFor('resolved')?.at || noteFor('rejected')?.at || c.resolved_at },

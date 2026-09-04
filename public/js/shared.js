@@ -5,8 +5,16 @@ import { t, tv, lang, setLang } from './i18n.js';
 import { CITIES } from './constants.js';
 
 // language toggle (citizen pages); pages can register a re-render for
-// dynamically built content
+// dynamically built content.  Idempotent: calling it twice replaces the old
+// listener instead of stacking a second one (which would toggle the language
+// back to where it started).
 export function bindLangToggle(rerender) {
+  document.querySelectorAll('.lang-toggle').forEach((b) => {
+    // Clone the node to remove all previously-attached event listeners
+    const clone = b.cloneNode(true);
+    b.parentNode.replaceChild(clone, b);
+  });
+  // Now bind fresh listeners to the cloned nodes
   document.querySelectorAll('.lang-toggle').forEach((b) => {
     b.addEventListener('click', () => {
       setLang(lang() === 'ur' ? 'en' : 'ur');
@@ -289,7 +297,7 @@ export function mountCommunityNav(active) {
 
       <div class="sb-scroll">
         <nav class="sb-nav" aria-label="Main navigation">
-          <a class="sb-link" href="/">
+          <a class="sb-link ${active === 'home' ? 'active' : ''}" href="/account.html">
             <span class="sb-nav-icon" aria-hidden="true">${iconHome}</span>
             <span class="sb-nav-label" data-i18n="nav_home">Home</span>
           </a>
@@ -314,7 +322,7 @@ export function mountCommunityNav(active) {
           <span class="sb-nav-label" data-i18n="lang_name">English</span>
         </button>
         ${authed
-          ? `<a href="/account.html" class="sb-foot-signout" style="text-decoration:none; color:var(--sb-muted)">
+          ? `<a href="/account.html?view=details" class="sb-foot-signout" style="text-decoration:none; color:var(--sb-muted)">
                <span class="sb-nav-icon" aria-hidden="true">${iconAuth}</span>
                <span class="sb-nav-label" data-i18n="nav_my_account">My Account</span>
              </a>`
@@ -327,19 +335,10 @@ export function mountCommunityNav(active) {
     </aside>
   `;
 
-  // Attach language toggle listener for the newly injected button
-  bindLangToggle(() => {
-    // Re-render nav labels when language changes
-    const brandSub = container.querySelector('[data-i18n="nav_citizen"]');
-    if (brandSub) brandSub.textContent = t('nav_citizen') || 'Citizen Portal';
-    container.querySelectorAll('[data-i18n]').forEach(el => {
-      if (el.dataset.i18n === 'lang_name') {
-        el.textContent = t('lang_name');
-      } else {
-        el.textContent = t(el.dataset.i18n) || el.textContent;
-      }
-    });
-  });
+  // NOTE: bindLangToggle is NOT called here. The page script calls it after
+  // mountCommunityNav, and setLang() → applyI18n() already updates all
+  // [data-i18n] elements in the sidebar. Calling bindLangToggle twice would
+  // add two click listeners that toggle the language twice (ur→en→ur).
 
   // Attach toggle logic
   const side = document.getElementById('dashSide');

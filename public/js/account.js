@@ -1,5 +1,8 @@
-// Citizen account page: my complaints (with live status), supported issues
-// (with remove-support), and profile settings (display name, logout).
+// Citizen account page — two modes:
+//  1. Dashboard (default, ?view=details absent): "Home" — my complaints +
+//     supported issues, the citizen's personal dashboard.
+//  2. Details (?view=details): "My Account" — profile info, account stats,
+//     edit display name, and delete-account with confirmation.
 // Guarded by requireCitizen() — a separate session from the officials' portal.
 
 import { initLang, t, tv, lang } from './i18n.js';
@@ -11,7 +14,9 @@ import {
 
 initLang();
 if (!requireCitizen()) throw new Error('redirecting to signin');
-mountCommunityNav('account');
+
+const isDetailsView = new URLSearchParams(location.search).get('view') === 'details';
+mountCommunityNav(isDetailsView ? 'details' : 'home');
 bindLangToggle(() => render());
 
 const root = document.getElementById('accountRoot');
@@ -21,6 +26,7 @@ const state = {
   tab: 'complaints',
   complaints: [],
   supports: [],
+  stats: null,
 };
 
 const ur = (en, urText) => (lang() === 'ur' ? urText : en);
@@ -36,6 +42,13 @@ async function loadAll() {
     ]);
     state.complaints = c.complaints;
     state.supports = s.supports;
+    // Fetch stats if in details view
+    if (isDetailsView) {
+      try {
+        const st = await api('/api/auth/me/stats', { auth: 'citizen' });
+        state.stats = st;
+      } catch { /* stats are nice-to-have */ }
+    }
     render();
   } catch (e) {
     if (e.status === 401) {
@@ -48,6 +61,17 @@ async function loadAll() {
 }
 
 function render() {
+  if (isDetailsView) {
+    renderDetails();
+  } else {
+    renderDashboard();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// DASHBOARD VIEW — my complaints + supported issues (the citizen's "Home")
+// ---------------------------------------------------------------------------
+function renderDashboard() {
   const u = state.user || {};
   root.innerHTML = `
     <div class="account-head">
@@ -61,9 +85,6 @@ function render() {
       </button>
       <button type="button" role="tab" data-tab="supports" aria-selected="${state.tab === 'supports'}" class="${state.tab === 'supports' ? 'active' : ''}">
         ${esc(t('account_tab_supports'))} (${state.supports.length})
-      </button>
-      <button type="button" role="tab" data-tab="settings" aria-selected="${state.tab === 'settings'}" class="${state.tab === 'settings' ? 'active' : ''}">
-        ${esc(t('account_tab_settings'))}
       </button>
     </div>
 
@@ -81,8 +102,7 @@ function render() {
 
 function tabHtml() {
   if (state.tab === 'complaints') return complaintsHtml();
-  if (state.tab === 'supports') return supportsHtml();
-  return settingsHtml();
+  return supportsHtml();
 }
 
 function emptyHtml(title, sub, ctaHref, ctaKey) {
@@ -95,10 +115,6 @@ function emptyHtml(title, sub, ctaHref, ctaKey) {
     </div>`;
 }
 
-// ---------------------------------------------------------------------------
-// tab: my complaints → click through to the tracking page (works for every
-// status, public or private — it is the citizen's own complaint)
-// ---------------------------------------------------------------------------
 function complaintsHtml() {
   if (!state.complaints.length) {
     return emptyHtml(t('account_empty_complaints'), t('account_empty_complaints_sub'), '/file.html', 'account_file_cta');
@@ -121,9 +137,6 @@ function complaintsHtml() {
     </div>`;
 }
 
-// ---------------------------------------------------------------------------
-// tab: supported issues → click through to the public issue, remove support
-// ---------------------------------------------------------------------------
 function supportsHtml() {
   if (!state.supports.length) {
     return emptyHtml(t('account_empty_supports'), t('account_empty_supports_sub'), '/community.html', 'account_browse_cta');
@@ -151,21 +164,99 @@ function supportsHtml() {
     </div>`;
 }
 
+function bindTab() {
+  root.querySelectorAll('.js-remove').forEach((b) => b.addEventListener('click', () => removeSupport(b.dataset.id)));
+}
+
+async function removeSupport(issueId) {
+  try {
+    await api(`/api/community/issues/${encodeURIComponent(issueId)}/support`, {
+      method: 'DELETE',
+      auth: 'citizen',
+    });
+    state.supports = state.supports.filter((s) => s.issue.id !== issueId);
+    render();
+  } catch (e) {
+    if (e.status === 401) {
+      clearCitizenSession();
+      location.href = '/signin.html';
+      return;
+    }
+    toast(e.message, 'error');
+  }
+}
+
 // ---------------------------------------------------------------------------
-// tab: settings (display name only — email is the account identity)
+// DETAILS VIEW — "My Account": profile, stats, edit name, delete account
 // ---------------------------------------------------------------------------
-function settingsHtml() {
+function renderDetails() {
   const u = state.user || {};
+  const s = state.stats || {};
   const provider = u.auth_provider === 'google' ? t('account_provider_google') : t('account_provider_password');
-  return `
-    <section class="card settings-card">
-      <dl class="kv">
-        <dt>${esc(t('signin_email_l'))}</dt><dd class="lat" lang="en">${esc(u.email || '')}</dd>
-        <dt>${esc(t('account_tab_settings'))}</dt><dd>${esc(provider)}</dd>
+
+  // Status breakdown chips
+  const statusBreakdown = s.by_status && Object.keys(s.by_status).length > 0
+    ? Object.entries(s.by_status).map(([status, count]) =>
+        `<span class="stat-chip stat-chip-${esc(status)}">${esc(tv('statuses', status))}: ${count}</span>`
+      ).join('')
+    : `<span class="muted small">${esc(t('account_no_complaints_yet'))}</span>`;
+
+  root.innerHTML = `
+    <div class="account-head">
+      <h1>${esc(t('account_details_title'))}</h1>
+      <a href="/account.html" class="btn btn-secondary">${esc(t('account_back_dashboard'))}</a>
+    </div>
+
+    <!-- Profile card -->
+    <section class="card details-card">
+      <div class="details-profile">
+        <div class="details-avatar">${esc((u.name || u.email || '?').charAt(0).toUpperCase())}</div>
+        <div class="details-profile-info">
+          <h2>${esc(u.name || t('account_no_name'))}</h2>
+          <p class="muted lat" lang="en">${esc(u.email || '')}</p>
+          <span class="details-provider">${esc(provider)}</span>
+        </div>
+      </div>
+      <dl class="kv details-kv">
         <dt>${esc(t('account_member_since', { date: '' }).replace(/\s*$/, ''))}</dt>
         <dd class="small">${fmtDateTime(u.created_at)}</dd>
+        <dt>${esc(t('account_user_id'))}</dt>
+        <dd class="mono small" lang="en">${esc(u.id || '')}</dd>
       </dl>
-      <form id="nameForm" novalidate style="margin-top:var(--s5)">
+    </section>
+
+    <!-- Stats grid -->
+    <section class="details-stats-section">
+      <h3 class="details-section-title">${esc(t('account_stats_title'))}</h3>
+      <div class="details-stats-grid">
+        <div class="stat-card">
+          <div class="stat-card-icon">${icon('file')}</div>
+          <div class="stat-card-value">${s.total_complaints ?? 0}</div>
+          <div class="stat-card-label">${esc(t('account_stat_complaints'))}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-icon">${icon('other')}</div>
+          <div class="stat-card-value">${s.total_supports ?? 0}</div>
+          <div class="stat-card-label">${esc(t('account_stat_supports'))}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-icon">${icon('inbox')}</div>
+          <div class="stat-card-value">${s.total_comments ?? 0}</div>
+          <div class="stat-card-label">${esc(t('account_stat_comments'))}</div>
+        </div>
+        <div class="stat-card stat-card-highlight">
+          <div class="stat-card-icon">${icon('check')}</div>
+          <div class="stat-card-value">${s.resolution_rate ?? 0}%</div>
+          <div class="stat-card-label">${esc(t('account_stat_resolution'))}</div>
+        </div>
+      </div>
+      <div class="stat-breakdown">${statusBreakdown}</div>
+    </section>
+
+    <!-- Edit name -->
+    <section class="card details-card">
+      <h3 class="details-section-title">${esc(t('account_edit_name'))}</h3>
+      <form id="nameForm" novalidate>
         <div class="field">
           <label for="displayName">${esc(t('account_name_l'))}</label>
           <input id="displayName" class="control" type="text" maxlength="80" value="${esc(u.name || '')}">
@@ -173,13 +264,43 @@ function settingsHtml() {
         </div>
         <button type="submit" class="btn btn-primary" id="saveBtn">${esc(t('account_save'))}</button>
       </form>
-    </section>`;
-}
+    </section>
 
-function bindTab() {
+    <!-- Danger zone -->
+    <section class="card details-danger-zone">
+      <h3 class="details-section-title danger">${esc(t('account_danger_title'))}</h3>
+      <p class="muted small" style="margin-bottom: var(--s5)">${esc(t('account_danger_desc'))}</p>
+      <button type="button" class="btn btn-danger" id="deleteBtn">${esc(t('account_delete_btn'))}</button>
+    </section>
+
+    <!-- Logout -->
+    <div class="details-logout">
+      <button type="button" class="btn btn-secondary" id="logoutBtn">${esc(t('account_logout'))}</button>
+    </div>
+
+    <!-- Delete confirmation modal -->
+    <div class="modal-overlay" id="deleteModal" hidden>
+      <div class="modal-box">
+        <h3>${esc(t('account_delete_confirm_title'))}</h3>
+        <p class="muted">${esc(t('account_delete_confirm_desc'))}</p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="cancelDeleteBtn">${esc(t('account_delete_cancel'))}</button>
+          <button type="button" class="btn btn-danger" id="confirmDeleteBtn">${esc(t('account_delete_confirm'))}</button>
+        </div>
+      </div>
+    </div>`;
+
+  // Bind events
   const form = document.getElementById('nameForm');
   if (form) form.addEventListener('submit', saveName);
-  root.querySelectorAll('.js-remove').forEach((b) => b.addEventListener('click', () => removeSupport(b.dataset.id)));
+  document.getElementById('logoutBtn').addEventListener('click', logout);
+  document.getElementById('deleteBtn').addEventListener('click', () => {
+    document.getElementById('deleteModal').hidden = false;
+  });
+  document.getElementById('cancelDeleteBtn').addEventListener('click', () => {
+    document.getElementById('deleteModal').hidden = true;
+  });
+  document.getElementById('confirmDeleteBtn').addEventListener('click', deleteAccount);
 }
 
 async function saveName(e) {
@@ -222,21 +343,25 @@ async function saveName(e) {
   }
 }
 
-async function removeSupport(issueId) {
+async function deleteAccount() {
+  const btn = document.getElementById('confirmDeleteBtn');
+  btn.disabled = true;
+  btn.textContent = t('account_deleting');
   try {
-    await api(`/api/community/issues/${encodeURIComponent(issueId)}/support`, {
-      method: 'DELETE',
-      auth: 'citizen',
-    });
-    state.supports = state.supports.filter((s) => s.issue.id !== issueId);
-    render();
-  } catch (e) {
-    if (e.status === 401) {
+    await api('/api/auth/me', { method: 'DELETE', auth: 'citizen' });
+    clearCitizenSession();
+    toast(t('account_deleted'));
+    location.href = '/';
+  } catch (err) {
+    if (err.status === 401) {
       clearCitizenSession();
       location.href = '/signin.html';
       return;
     }
-    toast(e.message, 'error');
+    toast(err.message, 'error');
+    btn.disabled = false;
+    btn.textContent = t('account_delete_confirm');
+    document.getElementById('deleteModal').hidden = true;
   }
 }
 

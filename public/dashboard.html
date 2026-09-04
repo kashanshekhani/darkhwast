@@ -19,7 +19,6 @@
 
   <div class="dash-side-backdrop" id="sideBackdrop"></div>
   <div class="dash-layout">
-<<<<<<< HEAD
     <aside class="sidebar" id="dashSide">
       <!-- Header block -->
       <div class="sb-brand-row">
@@ -35,29 +34,6 @@
         <button type="button" class="sb-collapse-btn" id="sideCollapseBtn" aria-label="Collapse sidebar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
         </button>
-=======
-    <aside class="dash-side" id="dashSide">
-      <a class="side-brand" href="/dashboard.html"><span class="dk-mark">DK</span> DarKhwast <span class="side-brand-tag">· Dashboard</span></a>
-      <div class="side-scroll">
-        <div class="side-label">Work</div>
-        <nav class="side-nav" aria-label="Main navigation">
-          <a class="side-link active" href="/dashboard.html" data-nav="dashboard" role="tab" aria-selected="true"><span class="nav-label">Dashboard</span></a>
-          <a class="side-link" href="/queue.html" data-nav="queue"><span class="nav-label">Complaint Queue</span><span class="side-count" id="cnt-all"></span></a>
-          <a class="side-link attention-dot" href="/queue.html?attention=1"><span class="nav-label">Needs attention</span><span class="side-count" id="cnt-attention"></span></a>
-        </nav>
-        <div class="side-label">By status</div>
-        <nav class="side-nav" aria-label="Status filters">
-          <a class="side-link" href="/queue.html?status=draft"><span class="nav-label">Draft</span><span class="side-count" id="cnt-draft"></span></a>
-          <a class="side-link" href="/queue.html?status=needs_review"><span class="nav-label">Needs review</span><span class="side-count" id="cnt-needs_review"></span></a>
-          <a class="side-link" href="/queue.html?status=pending_approval"><span class="nav-label">Pending approval</span><span class="side-count" id="cnt-pending_approval"></span></a>
-          <a class="side-link" href="/queue.html?status=sent"><span class="nav-label">Sent</span><span class="side-count" id="cnt-sent"></span></a>
-          <a class="side-link" href="/queue.html?status=send_failed"><span class="nav-label">Send failed</span><span class="side-count" id="cnt-send_failed"></span></a>
-          <a class="side-link" href="/queue.html?status=acknowledged"><span class="nav-label">Acknowledged</span><span class="side-count" id="cnt-acknowledged"></span></a>
-          <a class="side-link" href="/queue.html?status=in_progress"><span class="nav-label">In progress</span><span class="side-count" id="cnt-in_progress"></span></a>
-          <a class="side-link" href="/queue.html?status=resolved"><span class="nav-label">Resolved</span><span class="side-count" id="cnt-resolved"></span></a>
-          <a class="side-link" href="/queue.html?status=rejected"><span class="nav-label">Rejected</span><span class="side-count" id="cnt-rejected"></span></a>
-        </nav>
->>>>>>> 67583db5db746687a3b6b971ef473217ce80b7af
       </div>
       <div class="sb-divider"></div>
 
@@ -86,35 +62,39 @@
         <div>
           <div class="sb-label">By status</div>
           <nav class="sb-nav" aria-label="Status filters">
-            <a class="sb-link" href="/queue.html?status=draft">
+            <a class="sb-link" href="/queue.html?status=draft" data-status="draft">
               <span class="sb-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/></svg></span>
               <span class="sb-nav-label">Draft</span><span class="sb-count" id="cnt-draft"></span>
             </a>
-            <a class="sb-link" href="/queue.html?status=needs_review">
+            <a class="sb-link" href="/queue.html?status=needs_review" data-status="needs_review">
               <span class="sb-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 L20 19 L4 19 Z"/></svg></span>
               <span class="sb-nav-label">Needs review</span><span class="sb-count" id="cnt-needs_review"></span>
             </a>
-            <a class="sb-link" href="/queue.html?status=sent">
+            <a class="sb-link" href="/queue.html?status=pending_approval" data-status="pending_approval">
+              <span class="sb-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+              <span class="sb-nav-label">Pending approval</span><span class="sb-count" id="cnt-pending_approval"></span>
+            </a>
+            <a class="sb-link" href="/queue.html?status=sent" data-status="sent">
               <span class="sb-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 21l-4-8-8-4 19-7z"/></svg></span>
               <span class="sb-nav-label">Sent</span><span class="sb-count" id="cnt-sent"></span>
             </a>
-            <a class="sb-link" href="/queue.html?status=send_failed">
+            <a class="sb-link" href="/queue.html?status=send_failed" data-status="send_failed">
               <span class="sb-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></svg></span>
               <span class="sb-nav-label">Send failed</span><span class="sb-count" id="cnt-send_failed"></span>
             </a>
-            <a class="sb-link" href="/queue.html?status=acknowledged">
+            <a class="sb-link" href="/queue.html?status=acknowledged" data-status="acknowledged">
               <span class="sb-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 A9 9 0 1 1 11.999 3 Z"/></svg></span>
               <span class="sb-nav-label">Acknowledged</span><span class="sb-count" id="cnt-acknowledged"></span>
             </a>
-            <a class="sb-link" href="/queue.html?status=in_progress">
+            <a class="sb-link" href="/queue.html?status=in_progress" data-status="in_progress">
               <span class="sb-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
               <span class="sb-nav-label">In progress</span><span class="sb-count" id="cnt-in_progress"></span>
             </a>
-            <a class="sb-link" href="/queue.html?status=resolved">
+            <a class="sb-link" href="/queue.html?status=resolved" data-status="resolved">
               <span class="sb-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 10 18 20 6"/></svg></span>
               <span class="sb-nav-label">Resolved</span><span class="sb-count" id="cnt-resolved"></span>
             </a>
-            <a class="sb-link" href="/queue.html?status=rejected">
+            <a class="sb-link" href="/queue.html?status=rejected" data-status="rejected">
               <span class="sb-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M6 6l12 12"/></svg></span>
               <span class="sb-nav-label">Rejected</span><span class="sb-count" id="cnt-rejected"></span>
             </a>

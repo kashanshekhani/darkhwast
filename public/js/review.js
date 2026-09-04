@@ -3,11 +3,7 @@
 // Category correction chips, edit-letter mode, anonymous toggle, confirm modal.
 
 import { initLang, t, tv } from './i18n.js';
-<<<<<<< HEAD
-import { api, bindLangToggle, esc, icon, CATEGORY_ICON, initOfflineBanner, mountIcons, mountCommunityNav, sealSvg, toast, qs, isPhoneLike, isEmailLike } from './shared.js';
-=======
-import { api, bindLangToggle, esc, icon, CATEGORY_ICON, initOfflineBanner, mountIcons, sealSvg, toast, qs, isPhoneLike, isEmailLike, copyText } from './shared.js';
->>>>>>> 67583db5db746687a3b6b971ef473217ce80b7af
+import { api, bindLangToggle, esc, icon, CATEGORY_ICON, initOfflineBanner, mountIcons, mountCommunityNav, sealSvg, toast, qs, isPhoneLike, isEmailLike, copyText } from './shared.js';
 
 initLang();
 mountCommunityNav();
@@ -20,6 +16,7 @@ let letterText = null;      // citizen-edited letter (null = use server draft)
 let chipsOpen = false;
 let sending = false;
 let anonState = true;       // tracked independently so re-renders don't reset it
+let publicState = false;    // share on community feed
 
 const CATS = ['garbage', 'streetlight', 'water', 'sewage', 'road', 'other'];
 
@@ -318,6 +315,25 @@ function render(c) {
           </div>
         </div>
       </div>
+
+      <!-- Community sharing toggle -->
+      <div style="margin-top:20px">
+        <strong style="font-size:13px; color:var(--ink-muted); text-transform:uppercase; letter-spacing:.06em">Community</strong>
+        <div class="switch-row" style="margin-top:10px">
+          <input type="checkbox" id="publicSwitch" ${publicState ? 'checked' : ''}>
+          <div>
+            <label for="publicSwitch" class="sw-label">${t('community_share_label')}</label>
+            <p class="sw-help" id="publicHelp">${publicState ? t('community_share_on') : t('community_share_off')}</p>
+          </div>
+        </div>
+        <div id="publicIndicator" style="margin-top:10px">
+          ${publicState
+            ? `<span class="anon-badge" style="background:var(--stamp-tint); color:var(--stamp-hover)">🌐 Shared on Community</span>
+               <p class="small muted" style="margin-top:8px">${t('community_share_on_desc')}</p>`
+            : `<span class="anon-badge" style="background:var(--surface-muted); color:var(--ink-muted)">🔒 Private</span>
+               <p class="small muted" style="margin-top:8px">${t('community_share_off_desc')}</p>`}
+        </div>
+      </div>
     </section>
 
     <!-- ⑤ Final Action -->
@@ -409,6 +425,21 @@ function wire(c) {
     }
   });
 
+  // Community sharing toggle
+  const publicSwitch = document.getElementById('publicSwitch');
+  const publicIndicator = document.getElementById('publicIndicator');
+  publicSwitch?.addEventListener('change', () => {
+    publicState = publicSwitch.checked;
+    document.getElementById('publicHelp').textContent = publicState ? t('community_share_on') : t('community_share_off');
+    if (publicIndicator) {
+      publicIndicator.innerHTML = publicState
+        ? `<span class="anon-badge" style="background:var(--stamp-tint); color:var(--stamp-hover)">🌐 Shared on Community</span>
+           <p class="small muted" style="margin-top:8px">${t('community_share_on_desc')}</p>`
+        : `<span class="anon-badge" style="background:var(--surface-muted); color:var(--ink-muted)">🔒 Private</span>
+           <p class="small muted" style="margin-top:8px">${t('community_share_off_desc')}</p>`;
+    }
+  });
+
   // Send button
   document.getElementById('sendBtn')?.addEventListener('click', onSend);
 }
@@ -419,7 +450,8 @@ function wire(c) {
 async function onSend() {
   if (sending) return;
   const anon = document.getElementById('anonSwitch');
-  const payload = { anonymous: anon.checked, name: '', letter_text: letterText || undefined };
+  const pub = document.getElementById('publicSwitch');
+  const payload = { anonymous: anon.checked, name: '', letter_text: letterText || undefined, visibility: pub.checked ? 'public' : 'private' };
 
   if (!anon.checked) {
     const name = document.getElementById('idName').value.trim();

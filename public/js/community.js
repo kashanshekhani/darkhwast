@@ -27,8 +27,12 @@ const areaFilter = document.getElementById('areaFilter');
 const clearBtn = document.getElementById('clearFilters');
 const filterToggle = document.getElementById('filterToggle');
 const filterbar = document.getElementById('filterbar');
+const catChipsBar = document.getElementById('catChipsBar');
 
-const PUBLIC_STATUSES = ['sent', 'send_failed', 'acknowledged', 'in_progress', 'resolved', 'rejected'];
+// All categories for the quick-filter chips (always visible, even if empty)
+const ALL_CATEGORIES = ['garbage', 'streetlight', 'water', 'sewage', 'road', 'other'];
+
+const PUBLIC_STATUSES = ['pending_approval', 'sent', 'send_failed', 'acknowledged', 'in_progress', 'resolved', 'rejected'];
 
 const state = {
   q: '', city: '', category: '', status: '', dept: '', area: '', sort: 'newest',
@@ -90,6 +94,28 @@ function renderFilterOptions() {
     { value: '', label: t('community_all_depts') },
     ...[...f.departments].sort((a, b) => a.name.localeCompare(b.name)).map((d) => ({ value: d.id, label: d.name })),
   ]);
+  renderCatChips();
+}
+
+// Quick-filter category chips — always visible at the top of the page
+function renderCatChips() {
+  const activeCat = state.category;
+  const chips = [
+    { value: '', label: t('community_all_cats'), icon: 'inbox' },
+    ...ALL_CATEGORIES.map((c) => ({ value: c, label: tv('categories', c), icon: CATEGORY_ICON[c] || 'other' })),
+  ];
+  catChipsBar.innerHTML = chips.map((ch) => `
+    <button type="button" class="cat-chip-btn ${ch.value === activeCat ? 'active' : ''}" data-cat="${esc(ch.value)}" aria-pressed="${ch.value === activeCat}">
+      ${icon(ch.icon)}<span>${esc(ch.label)}</span>
+    </button>`).join('');
+  mountIcons(catChipsBar);
+  catChipsBar.querySelectorAll('.cat-chip-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      state.category = btn.dataset.cat;
+      catFilter.value = state.category; // keep dropdown in sync
+      reload();
+    });
+  });
 }
 
 let searchTimer = null;
@@ -111,7 +137,7 @@ areaFilter.addEventListener('change', () => { state.area = areaFilter.value.trim
 clearBtn.addEventListener('click', () => {
   state.q = ''; state.city = ''; state.category = ''; state.status = ''; state.dept = ''; state.area = '';
   searchInput.value = ''; areaFilter.value = '';
-  renderFilterOptions();
+  renderFilterOptions(); // also re-renders cat chips
   history.replaceState(null, '', '/community.html');
   reload();
 });

@@ -3,10 +3,9 @@
 // (separate from the government portal's `dk_token`).
 
 import { initLang, t, lang } from './i18n.js';
-import { api, bindLangToggle, mountCommunityNav, setCitizenSession, qs } from './shared.js';
+import { api, bindLangToggle, setCitizenSession, qs } from './shared.js';
 
 initLang();
-mountCommunityNav();
 bindLangToggle();
 
 const errBox = document.getElementById('authError');

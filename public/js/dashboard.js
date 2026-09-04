@@ -127,7 +127,7 @@ function renderKPIs() {
     .filter((c) => c.events?.some((e) => e.to_status === 'acknowledged'))
     .map((c) => {
       const ev = c.events.find((e) => e.to_status === 'acknowledged');
-      return (new Date(ev.at).getTime() - new Date(c.created_at).getTime()) / 86400000;
+      return (new Date(ev.created_at).getTime() - new Date(c.created_at).getTime()) / 86400000;
     });
   const avgAck = ackTimes.length ? (ackTimes.reduce((a, b) => a + b, 0) / ackTimes.length).toFixed(1) + 'd' : '—';
 
@@ -136,11 +136,11 @@ function renderKPIs() {
   const twoWeeksAgo = new Date(now); twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
   const thisWeek = complaints.filter((c) => {
     const ev = c.events?.find((e) => e.to_status === 'resolved');
-    return ev && new Date(ev.at) >= weekAgo;
+    return ev && new Date(ev.created_at) >= weekAgo;
   }).length;
   const lastWeek = complaints.filter((c) => {
     const ev = c.events?.find((e) => e.to_status === 'resolved');
-    return ev && new Date(ev.at) >= twoWeeksAgo && new Date(ev.at) < weekAgo;
+    return ev && new Date(ev.created_at) >= twoWeeksAgo && new Date(ev.created_at) < weekAgo;
   }).length;
   const trend = thisWeek > lastWeek ? 'up' : thisWeek < lastWeek ? 'down' : 'flat';
   const trendArrow = trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→';
@@ -198,7 +198,7 @@ function buildDailyData(days) {
     const resolved = complaints.filter((c) => {
       const ev = c.events?.find((e) => e.to_status === 'resolved');
       if (!ev) return false;
-      const t = new Date(ev.at).getTime();
+      const t = new Date(ev.created_at).getTime();
       return t >= d.getTime() && t < next.getTime();
     }).length;
     out.push({ day: dayNames[d.getDay()], date: d.toISOString(), filed, resolved });
@@ -252,7 +252,7 @@ function renderActivityFeed() {
     if (!c.events) continue;
     for (const e of c.events) events.push({ ...e, complaint: c });
   }
-  events.sort((a, b) => new Date(b.at) - new Date(a.at));
+  events.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   const recent = events.slice(0, 6);
 
   if (!recent.length) {
@@ -262,8 +262,8 @@ function renderActivityFeed() {
 
   const feedHtml = recent.map((e) => {
     const c = e.complaint;
-    const age = timeAgo(e.at);
-    const ageDays = (Date.now() - new Date(e.at).getTime()) / 86400000;
+    const age = timeAgo(e.created_at);
+    const ageDays = (Date.now() - new Date(e.created_at).getTime()) / 86400000;
     return `
     <a class="dz-feed-item" href="/complaint.html?id=${esc(c.id)}">
       <div class="dz-feed-avatar" style="background:${statusColor(e.to_status)}20;color:${statusColor(e.to_status)}">
